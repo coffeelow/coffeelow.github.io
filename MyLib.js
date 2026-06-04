@@ -409,8 +409,10 @@ class Chess {
   doMove(board, i, j, m) {
     let b = [...board];
     let p = b[i + 8 * j];
-    b.castling = JSON.parse(JSON.stringify(board.castling));
-
+    b.castling = {
+      white: { ...board.castling.white },
+      black: { ...board.castling.black },
+    };
     if (p.shape === "king" && Math.abs(m[0] - i) === 2) {
       let row = p.color === "white" ? 7 : 0;
       let rf = m[0] === 6 ? 7 : 0;
@@ -508,58 +510,90 @@ class Propose {
   }
   alphabeta(board, depth, alpha, beta, max) {
     if (depth === 0) return this.chess.measureWhite(board);
+
     let moves = [];
+    // 1. Schnelle, ungefilterte Züge generieren (nur moveFilter, kein teures endFilter!)
     for (let c = 0; c < 64; c++) {
       if (board[c] && board[c].color === board.color) {
-        let ms = this.chess.endFilter(
-          board,
-          c % 8,
-          Math.floor(c / 8),
-          this.chess.moveFilter(
-            board,
-            c % 8,
-            Math.floor(c / 8),
-            this.chess.getMoves(board, c % 8, Math.floor(c / 8)),
-          ),
-        );
-        ms.forEach((m) => moves.push({ i: c % 8, j: Math.floor(c / 8), m }));
+        let i = c % 8;
+        let j = Math.floor(c / 8);
+        let rawMoves = this.chess.getMoves(board, i, j);
+        let filtered = this.chess.moveFilter(board, i, j, rawMoves);
+
+        filtered.forEach((m) => {
+          // Optionale einfache Sortierung: Schläge höher priorisieren
+          let weight = board[m[0] + 8 * m[1]] ? 10 : 0;
+          moves.push({ i, j, m, weight });
+        });
       }
     }
+
+    // Falls keine Züge vorhanden sind
     if (moves.length === 0) return this.chess.measureWhite(board);
+
+    // 2. Züge sortieren (wichtig für Alpha-Beta-Pruning!)
+    moves.sort((a, b) => b.weight - a.weight);
+
     if (max) {
       let v = -Infinity;
       for (let m of moves) {
+        let nextBoard = this.chess.doMove(board, m.i, m.j, m.m);
+
+        // KÖNIGS-CHECK: Steht unser König nach dem Zug im Schach?
+        // Da doMove bereits die Farbe gewechselt hat, prüfen wir die vorherige Farbe (max -> weiß)
+        let kPos = nextBoard.findIndex(
+          (p) => p && p.shape === "king" && p.color === "white",
+        );
+        if (
+          kPos !== -1 &&
+          this.chess.isUnderThreat(
+            nextBoard,
+            kPos % 8,
+            Math.floor(kPos / 8),
+            "white",
+          )
+        ) {
+          continue; // Illegaler Zug, überspringen!
+        }
+
         v = Math.max(
           v,
-          this.alphabeta(
-            this.chess.doMove(board, m.i, m.j, m.m),
-            depth - 1,
-            alpha,
-            beta,
-            false,
-          ),
+          this.alphabeta(nextBoard, depth - 1, alpha, beta, false),
         );
         alpha = Math.max(alpha, v);
-        if (beta <= alpha) break;
+        if (beta <= alpha) break; // Beta-Cutoff
       }
-      return v;
+      // Wenn alle Züge illegal waren (Schachmatt / Patt), Bewertung zurückgeben
+      return v === -Infinity ? this.chess.measureWhite(board) : v;
     } else {
       let v = Infinity;
       for (let m of moves) {
+        let nextBoard = this.chess.doMove(board, m.i, m.j, m.m);
+
+        // KÖNIGS-CHECK für Schwarz
+        let kPos = nextBoard.findIndex(
+          (p) => p && p.shape === "king" && p.color === "black",
+        );
+        if (
+          kPos !== -1 &&
+          this.chess.isUnderThreat(
+            nextBoard,
+            kPos % 8,
+            Math.floor(kPos / 8),
+            "black",
+          )
+        ) {
+          continue; // Illegaler Zug, überspringen!
+        }
+
         v = Math.min(
           v,
-          this.alphabeta(
-            this.chess.doMove(board, m.i, m.j, m.m),
-            depth - 1,
-            alpha,
-            beta,
-            true,
-          ),
+          this.alphabeta(nextBoard, depth - 1, alpha, beta, true),
         );
         beta = Math.min(beta, v);
-        if (beta <= alpha) break;
+        if (beta <= alpha) break; // Alpha-Cutoff
       }
-      return v;
+      return v === Infinity ? this.chess.measureWhite(board) : v;
     }
   }
 }
