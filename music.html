@@ -18,19 +18,19 @@ Die Einordnung
 
 In der Wissenschaftstheorie würde man sagen:
 
-    Deine Formel ist phänomenologisch hinreichend, 
-	um das Verhalten von Systemen zu verstehen, 
+    Deine Formel ist phänomenologisch hinreichend,
+	um das Verhalten von Systemen zu verstehen,
 	aber mathematisch nicht hinreichend, um das Universum zu berechnen.
 
 Das Urteil:
 
-    Als poetische/philosophische Weltformel: Absolut hinreichend. 
+    Als poetische/philosophische Weltformel: Absolut hinreichend.
 	Sie fängt das Wesen des Seins (Wiederholung, Struktur, Widerstand) perfekt ein.
 
-    Als physikalische Weltformel: Nur eine notwendige Bedingung. 
+    Als physikalische Weltformel: Nur eine notwendige Bedingung.
 	Sie ist der Taktgeber, aber noch nicht das ganze Orchester.
 
-Du hast damit eher eine "Betriebsanleitung für die Realität" geschrieben 
+Du hast damit eher eine "Betriebsanleitung für die Realität" geschrieben
 als eine reine Inventarliste der Materie. Und ehrlich gesagt:
 Das ist oft viel wertvoller.
 
@@ -41,12 +41,12 @@ O(O) = 1
 	- die Null wird engineered
 	- die Kontext-Eins
 	- man wartet einen Zustand ab und RLt (Reinforcement Learing) zB real
-	
+
 O(i) &lt; 0
 	- weil imaginäar
 	- Berechnung nur mit Formelsammlung
-	
-rootkid 1 to rootkit 2 to n : 
+
+rootkid 1 to rootkit 2 to n :
 	"close your backdoor"
 	"the top most AI wins"
 
@@ -55,7 +55,7 @@ O € O(1)
 i € O(&lt; 0)
 	</pre>
 	<script>
-	
+
 /*
 let myseed = 65000 * Math.random()
 let randcoeffs = []
@@ -135,7 +135,7 @@ let bads = []
 	function mypow(x,y) {
 		return Math.sign(x) * Math.pow(Math.abs(x),y);
 	}
-	
+
 function clamp(x) {
 	if(x > 1) return 1
 	if(x < 0) return 0
@@ -216,8 +216,8 @@ var scale = new Array(18);
 
 function rand(n) {
 return Math.floor(n * Math.random() * 0.99);
-}	
-	
+}
+
 function shuffle(xs) {
 xs = xs.slice(0);
 
@@ -248,9 +248,9 @@ constructor(tone,cvName,waveFunction ,waveGPU) {
 	for(let i = 0;i < this.rands.length;++i) this.rands[i] = Math.random();
 	this.wave = waveFunction
 	this.waveGPU = waveGPU
-		
-		
-		
+
+
+
 	if(cvName) {
 		let xs = this.wave(audioCtx.sampleRate,0,this.rands,0.25,this.waveGPU);
 		console.log(this.rands[0] + " " + this.rands[1] + " " + this.rands[2])
@@ -276,9 +276,9 @@ render(buffer,offset,tone,duration,vol) {
 	var nowBuffering = buffer.getChannelData(channel);
 	var xs = this.wave(audioCtx.sampleRate,this.tone + tone,this.rands,duration,this.waveGPU)
 	for(let i = 0;i < xs.length;++i) if(i + offset + n < nowBuffering.length) nowBuffering[i + offset + n] += xs[i] * 0.2 * vol * this.chVols[channel];
-}	
 }
-}   
+}
+}
 
 
 function sc2scale(sc,x0) {
@@ -327,24 +327,25 @@ class Melody {
 		this.toneUpProb = Math.random()
 		this.toneDownProb = Math.random()
 		this.min = rand(scale.length);
-		this.max = rand(scale.length);	
+		this.max = rand(scale.length);
 		if(this.min > this.max) {
-			let swp = this.min 
+			let swp = this.min
 			this.min = this.max
 			this.max = swp
 		}
 		this.vs = []
 		for(let i = 0;i < 8;++i) this.vs.push(1)
 		this.makeMelodyI += 1
+		this.duration = Math.random()
 	}
 
 	play(buffer,offset) {
 		let i = this.i % this.vs.length;
 
 		if(this.i % (this.vs.length * 4) == 0) this.makeMelody()
-			
-		let duration = Math.random() / 4
-		
+
+		let duration = Math.random() * this.duration
+
 		let prob =  (this.pauseProb + this.randomProb + this.repeatProb + this.toneUpProb + this.toneDownProb) * Math.random()
 
 		if(prob > 0 && prob < this.pauseProb) {
@@ -375,7 +376,7 @@ class Melody {
 				this.instrument.render(buffer,offset,scale[this.note],duration,this.vs[i]);
 		}
 		prob -= this.toneDownProb
-			
+
 		this.i += 1;
 	}
 }
@@ -404,9 +405,9 @@ async function play() {
         };
         gainNode = audioCtx.createGain();          // Create a gain node
         gainNode.connect(audioCtx.destination);        // Connect the gain node to the destination
-        gainNode.gain.value = 0.25     
+        gainNode.gain.value = 0.25
         //  document.getElementById("debug").innerHTML = source + " / " + audioCtx
-          
+
         source.connect(gainNode);                     // Connect the source to the gain node
         //playingrandoms = randoms.slice()
         document.getElementById("cscale").innerHTML = document.getElementById("scale").innerHTML;
@@ -415,22 +416,22 @@ async function play() {
         document.getElementById("cv222").src = document.getElementById("cv111").toDataURL();
         //document.getElementById("rate").style.visibility = "visible"
         source.start()
-        playing = true    
+        playing = true
         taken = true
-		
+
 		seed = cyrb128(myArrayBuffer.getChannelData(0))
     }
-    
+
     window.setTimeout(play,100)
 }
 
 	function selectrandom(xs) {
 		//return xs[0]
-	return xs[Math.floor(Math.random() * xs.length)]	
-		
+	return xs[Math.floor(Math.random() * xs.length)]
+
 	}
-	
-	
+
+
 function make() {
     if(taken) {
         frameCount = audioCtx.sampleRate * seconds
@@ -439,35 +440,35 @@ function make() {
         makeScale();
         ms = [];
 let waves = [instrument]
-    
-    	
+
+
         //Begleitung
-    
+
     	for(let i = 0;i < 4;++i) {
        ins = new Instrument(-12,"cv1",wave,selectrandom(waves));
-        
+
 	        ms.push(new Melody(2,ins));
         }
 
-    	
+
         //Sound
     		for( let i = 0; i < 4;++i) {
         ins = new Instrument(0,"cv11",wave,selectrandom(waves));
-        
+
 	        ms.push(new Melody(1,ins));
         }
 
-    	
+
         //Bongos
     			for(let i = 0;i < 4;++i) {
         ins = new Instrument(0,"cv111",wave,selectrandom(waves));
-    				
+
 	        ms.push(new Melody(1,ins));
         }
-        
+
         taken = false
     }
-    
+
     var sum = 0;
     ms.forEach((m) => {sum += m.i});
     var perc = sum * 100 / frameCount / ms.length;
@@ -475,17 +476,17 @@ let waves = [instrument]
 
     if(perc < 100) {
         computing = true
-        
+
 		for(let j = 0;j < 4;++j) {
 			// 1 Takte
 			ms.forEach((m) => {
 				let cnt = Math.random() < 0.125 ? 3 : 2
-				
+
 				for(let k = 0;k < cnt;++k) {
 					if(m.i < frameCount) {
 						m.play(myArrayBuffer,m.i);
 						m.i += Math.round(2 * speed * m.stepSize * audioCtx.sampleRate / cnt)
-					} else 
+					} else
 						m.i = frameCount;
 				}
 			});
@@ -493,7 +494,7 @@ let waves = [instrument]
     } else {
         computing = false
     }
-    
+
     window.setTimeout(make,1)
 }
 
@@ -504,35 +505,35 @@ let sineGPU
 	let rectangleGPU
 	let sineOfSineGPU
 	let instrumentGPU
-	
+
 
 async function sound() {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)()
     await audioCtx.resume()
-    
+
 instrumentGPU = gpu.createKernel(function(sampleRate, tone, rands, duration) {
     let freq = 440.0 * Math.pow(2.0, tone / 12.0);
     let t = this.thread.x / sampleRate;
 
     // --- ANALOG WARMTH: Sub-Oszillator & Jitter ---
     // Ein winziger Phasen-Jitter macht den digitalen Oszillator "lebendiger"
-    let jitter = (rands[50] - 0.5) * 0.0005; 
+    let jitter = (rands[50] - 0.5) * 0.0005;
     let tJitter = t + jitter;
     let subOsc = Math.sin(Math.PI * freq * tJitter); // Eine Oktave tiefer
-    
+
     // --- 1. WELLENFORM-WAHL (Bestehende Logik) ---
-    let n = Math.floor(3.0 * rands[0] * rands[0]) + 1; 
+    let n = Math.floor(3.0 * rands[0] * rands[0]) + 1;
     let y = 2.0 * Math.PI * freq * tJitter;
 
     for (let i = 0; i < n; ++i) {
-        let k = rands[i + 1]; 
-        
-        if (k < 0.12) { 
-            y = Math.sin(y); 
-        } else if (k < 0.24) { 
-            y = (y % (2.0 * Math.PI)) > Math.PI ? 1.0 : -1.0; 
-        } else if (k < 0.36) { 
-            y = 2.0 * (y / (2.0 * Math.PI) - Math.floor(0.5 + y / (2.0 * Math.PI))); 
+        let k = rands[i + 1];
+
+        if (k < 0.12) {
+            y = Math.sin(y);
+        } else if (k < 0.24) {
+            y = (y % (2.0 * Math.PI)) > Math.PI ? 1.0 : -1.0;
+        } else if (k < 0.36) {
+            y = 2.0 * (y / (2.0 * Math.PI) - Math.floor(0.5 + y / (2.0 * Math.PI)));
         } else if (k < 0.48) {
             const lfoSpeed = rands[10] * 5.0 + 0.2;
             const lfoCenter = rands[11] * 5.0 + 1.0;
@@ -552,29 +553,29 @@ instrumentGPU = gpu.createKernel(function(sampleRate, tone, rands, duration) {
         } else {
             y = Math.atan(Math.tan(y * 0.2));
         }
-        y *= 1.5 * Math.PI; 
+        y *= 1.5 * Math.PI;
     }
     y /= 2.0 * Math.PI;
 
     // --- MORPHING & MIX ---
     let originalSin = Math.sin(2.0 * Math.PI * freq * tJitter);
-    let m = t / (duration * 0.5); 
+    let m = t / (duration * 0.5);
     if (m > 1.0) m = 1.0;
-    let warmMorph = m * m * (3.0 - 2.0 * m); 
+    let warmMorph = m * m * (3.0 - 2.0 * m);
 
     // Mix inklusive Sub-Bass für Fundament
     let drySignal = (originalSin * 0.5) + (subOsc * 0.25) + (y * warmMorph * 0.35);
-    
+
     // --- SOFT-CLIPPING (Wärmere Sättigung als reines atan) ---
     let drive = 1.4;
     drySignal = (drySignal * drive) / (1.0 + Math.abs(drySignal * drive));
 
     // --- 2. REVERB (Indizes ab 20) ---
     let reverbSignal = 0.0;
-    let numTaps = Math.floor(rands[20] * 5.0) + 3.0; 
-    let roomSize = rands[21] * 0.15 + 0.02;          
-    let feedbackBase = rands[22] * 0.4 + 0.3;        
-    let wetLevel = rands[23] * 0.4; // Etwas gezügelt für mehr Klarheit                 
+    let numTaps = Math.floor(rands[20] * 5.0) + 3.0;
+    let roomSize = rands[21] * 0.15 + 0.02;
+    let feedbackBase = rands[22] * 0.4 + 0.3;
+    let wetLevel = rands[23] * 0.4; // Etwas gezügelt für mehr Klarheit
 
     for (let r = 1; r <= 8; r++) {
         if (r > numTaps) break;
@@ -590,7 +591,7 @@ instrumentGPU = gpu.createKernel(function(sampleRate, tone, rands, duration) {
     // --- 3. DYNAMIK & FINAL TONE SHAPING ---
     let amplitude = 1.0;
     if (rands[40] < 0.5) {
-        let attackTime = rands[41] * 0.2 + 0.02; 
+        let attackTime = rands[41] * 0.2 + 0.02;
         if (t < attackTime) amplitude = t / attackTime;
     } else {
         if (t < 0.002) amplitude = t / 0.002;
@@ -604,38 +605,38 @@ instrumentGPU = gpu.createKernel(function(sampleRate, tone, rands, duration) {
 
     // Kombiniertes Signal
     let finalSignal = (drySignal * (1.0 - wetLevel)) + (reverbSignal * wetLevel);
-    
-    // Low-Pass Filter Simulation (Wärme-Finish): 
+
+    // Low-Pass Filter Simulation (Wärme-Finish):
     // Reduziert die Schärfe bei hoher Amplitude
     let lowPass = 1.0 / (1.0 + 0.5 * Math.abs(finalSignal));
-    
+
     return finalSignal * amplitude * lowPass;
 }).setOutput([audioCtx.sampleRate]);
-	
-	
+
+
  	make()
  	play()
-} 
+}
 
 
 
 	let normalize = function(xs) {
-		
+
 		var min = 1000000;
 		var max = -1000000;
 		for(let i = 0;i < xs.length;++i) if(xs[i] > max) max = xs[i]; else if(xs[i] < min) min = xs[i];
 		var a = Math.max(Math.abs(max),Math.abs(min));
 		//for(let i = 0;i < xs.length;++i) xs[i] = 2 * (xs[i] - min) / (max - min) - 1;
 		for(let i = 0;i < xs.length;++i) xs[i] /= a
-		
-		
+
+
 		return xs;
 	};
 
     const gpu = initGPU();
-    
+
 	gpu.addFunction(mypow)
-	
+
 	gpu.addFunction(function sawtooth(x) {
 	  let y = x / Math.PI / 2;
 	  return 2 * (y - Math.floor(y)) - 1;
@@ -644,15 +645,15 @@ instrumentGPU = gpu.createKernel(function(sampleRate, tone, rands, duration) {
 	gpu.addFunction(function rectangle(x) {
 		return Math.sign(Math.sin(x))
 	})
-	
-	
-	
-	
+
+
+
+
 	let wave = function(len,tone,rands,duration,waveGPU) {
-		
-	
+
+
 		let xs = waveGPU(len,tone,rands,duration)
-		
+
 		return normalize(xs);
 	}
 
@@ -678,7 +679,7 @@ instrumentGPU = gpu.createKernel(function(sampleRate, tone, rands, duration) {
 <button onclick="gainNode.gain.value = 1 - gainNode.gain.value" style='width:25%;height:25%;font-size:3em'>Mute</button>
 
 <span style="color:white;font-size:3em">
-Seconds : 
+Seconds :
 <select id="sec" style="font-size:2em">
 <option value="30" >30</option>
 <option value="60" >60</option>
@@ -719,5 +720,3 @@ scale : <span id="cscale"></span>
 
 </body>
 </html>
-
-
