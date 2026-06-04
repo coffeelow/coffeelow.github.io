@@ -56,70 +56,16 @@ i € O(&lt; 0)
 	</pre>
 	<script>
 
-/*
-let myseed = 65000 * Math.random()
-let randcoeffs = []
-for(let i = 0;i < 5;++i) randcoeffs.push(Math.random())
+
+let randSeed = Math.random()
+let randFactor = 1234
 
 Math.random = function() {
-	let s = myseed
-	for(let i = 0;i < randcoeffs.length;++i) s += 65000 * randcoeffs[i] * Math.pow((Math.sin(myseed) + 1) / 2,i)
-	myseed = s % 65000
-	return myseed / 65000.0
-}
-*/
-
-function cyrb128(str) {
-    let h1 = 1779033703, h2 = 3144134277,
-        h3 = 1013904242, h4 = 2773480762;
-    for (let i = 0, k; i < str.length; i++) {
-        k = Math.round(str[i] * 128 + 128);
-        h1 = h2 ^ Math.imul(h1 ^ k, 597399067);
-        h2 = h3 ^ Math.imul(h2 ^ k, 2869860233);
-        h3 = h4 ^ Math.imul(h3 ^ k, 951274213);
-        h4 = h1 ^ Math.imul(h4 ^ k, 2716044179);
-    }
-    h1 = Math.imul(h3 ^ (h1 >>> 18), 597399067);
-    h2 = Math.imul(h4 ^ (h2 >>> 22), 2869860233);
-    h3 = Math.imul(h1 ^ (h3 >>> 17), 951274213);
-    h4 = Math.imul(h2 ^ (h4 >>> 19), 2716044179);
-    h1 ^= (h2 ^ h3 ^ h4), h2 ^= h1, h3 ^= h1, h4 ^= h1;
-    return [h1>>>0, h2>>>0, h3>>>0, h4>>>0];
+  randSeed = (Math.sin(randFactor * randSeed) + 1) / 2.01
+  return randSeed
 }
 
-var seed = cyrb128([Math.random()]);
-// Four 32-bit component hashes provide the seed for sfc32.
-
-function sfc32(a, b, c, d) {
-  return function() {
-    a |= 0; b |= 0; c |= 0; d |= 0;
-    let t = (a + b | 0) + d | 0;
-    d = d + 1 | 0;
-    a = b ^ b >>> 9;
-    b = c + (c << 3) | 0;
-    c = (c << 21 | c >>> 11);
-    c = c + t | 0;
-    return (t >>> 0) / 4294967296;
-  }
-}
-
-
-Math.random = sfc32(seed[0], seed[1], seed[2], seed[3]);
-
-
-//for(let i = 0;i < 100;++i) document.write(Math.random() + "<br>")
-/*
-let ___random = Math.random
-let randoms = new Float32Array(10000)
-for(let i = 0;i < randoms.length;++i) randoms[i] = ___random()
-
-let randomi = 0
-
-Math.random = function() {
-	return randoms[randomi++]
-}
-*/
-
+for(let i = 0;i < 20;++i) console.log(Math.random())
 function initGPU() {
 	try {
 		return new window.GPU.GPU();
@@ -419,7 +365,7 @@ async function play() {
         playing = true
         taken = true
 
-		seed = cyrb128(myArrayBuffer.getChannelData(0))
+        //seed = cyrb128(myArrayBuffer.getChannelData(0))
     }
 
     window.setTimeout(play,100)
@@ -480,11 +426,11 @@ let waves = [instrument]
 		for(let j = 0;j < 4;++j) {
 			// 1 Takte
 			ms.forEach((m) => {
-				let cnt = Math.random() < 0.125 ? 3 : 2
+				let cnt = 2 //Math.random() < 0.125 ? 3 : 2
 
 				for(let k = 0;k < cnt;++k) {
 					if(m.i < frameCount) {
-						m.play(myArrayBuffer,m.i);
+						if(Math.random() < 0.5) m.play(myArrayBuffer,m.i);
 						m.i += Math.round(2 * speed * m.stepSize * audioCtx.sampleRate / cnt)
 					} else
 						m.i = frameCount;
