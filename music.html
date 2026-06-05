@@ -57,15 +57,31 @@ i € O(&lt; 0)
 	<script>
 
 
+	let _random = Math.random
 let randSeed = Math.random()
-let randFactor = 1234
+let randFactor = 10000 + 10000 * _random()
+let randN = 100
+
 
 Math.random = function() {
-  randSeed = (Math.sin(randFactor * randSeed) + 1) / 2.01
-  return randSeed
+  //if(_random() < 0.75)
+    randSeed = (Math.sin(randFactor * randSeed) + 1) / 2
+    //else randSeed = _random()
+
+  //randN -= 1
+  //if(randN < 0) {
+    //if(_random() < 0.75)
+      randFactor = 10000 + 10000 * Math.pow(randSeed,_random() * 1.5 + 0.5) + 10000 * Math.pow(_random(),randSeed * 1.5 + 0.5)
+      // else randFactor = 10000 + 10000 * _random()
+
+    //randN = 100 * _random()
+    //}
+  return randSeed * 0.999
 }
 
-for(let i = 0;i < 20;++i) console.log(Math.random())
+
+//for(let i = 0;i < 10000;++i) Math.random()
+
 function initGPU() {
 	try {
 		return new window.GPU.GPU();
@@ -245,7 +261,7 @@ let n = rand(sc.length)
 for(let i = 0;i < n;++i) sc.unshift(sc.pop())
 sc = sc.concat(sc)
 
-let scale0 = sc2scale(sc,rand(12) - 12)
+let scale0 = sc2scale(sc,rand(12) - 12 - 5)
 	scale = []
 	for(let i = 0;i < scale0.length;++i) if(scale0[i] < 12) scale.push(scale0[i])
 document.getElementById("scale").innerHTML = "[" + scale + "]";
@@ -282,7 +298,7 @@ class Melody {
 		this.vs = []
 		for(let i = 0;i < 8;++i) this.vs.push(1)
 		this.makeMelodyI += 1
-		this.duration = Math.random()
+		this.duration = 0.25 + 0.75 * Math.random()
 	}
 
 	play(buffer,offset) {
@@ -290,7 +306,7 @@ class Melody {
 
 		if(this.i % (this.vs.length * 4) == 0) this.makeMelody()
 
-		let duration = Math.random() * this.duration
+		let duration = (0.25 + 0.75 * Math.random()) * this.duration
 
 		let prob =  (this.pauseProb + this.randomProb + this.repeatProb + this.toneUpProb + this.toneDownProb) * Math.random()
 
@@ -456,8 +472,39 @@ let sineGPU
 async function sound() {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)()
     await audioCtx.resume()
+    instrumentGPU = gpu.createKernel(function(sampleRate, tone, rands, duration) {
+      let freq = 440.0 * Math.pow(2.0, tone / 12.0);
+      let t = this.thread.x / sampleRate;
+      let j = 0
 
-instrumentGPU = gpu.createKernel(function(sampleRate, tone, rands, duration) {
+      let n = Math.floor(2 * rands[j++])
+
+      let y = 0
+
+
+       if(n == 0) y = Math.sin(2 * Math.PI * freq * t)
+       if(n == 1) y = Math.sign(Math.sin(2 * Math.PI * freq * t))
+
+
+      let amplitude = 1.0;
+      if (rands[j++] < 0.5) {
+          let attackTime = rands[j++] * 0.2 + 0.02;
+          if (t < attackTime) amplitude = t / attackTime;
+      } else {
+          if (t < 0.002) amplitude = t / 0.002;
+      }
+
+      if (rands[j++] < 0.5) {
+          amplitude *= (Math.atan(-100.0 * (t - (duration - 0.05))) + (Math.PI / 2.0)) / Math.PI;
+      } else {
+          amplitude *= Math.exp(-t / (duration * 0.4));
+      }
+
+
+      return y * amplitude
+    }).setOutput([audioCtx.sampleRate]);
+
+_instrumentGPU = gpu.createKernel(function(sampleRate, tone, rands, duration) {
     let freq = 440.0 * Math.pow(2.0, tone / 12.0);
     let t = this.thread.x / sampleRate;
 
@@ -468,10 +515,10 @@ instrumentGPU = gpu.createKernel(function(sampleRate, tone, rands, duration) {
     let subOsc = Math.sin(Math.PI * freq * tJitter); // Eine Oktave tiefer
 
     // --- 1. WELLENFORM-WAHL (Bestehende Logik) ---
-    let n = Math.floor(3.0 * rands[0] * rands[0]) + 1;
+    let n = Math.floor(2.0 * rands[0] * rands[0]) + 1;
     let y = 2.0 * Math.PI * freq * tJitter;
 
-    for (let i = 0; i < n; ++i) {
+    for (let i = 0; i < 1; ++i) {
         let k = rands[i + 1];
 
         if (k < 0.12) {
