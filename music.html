@@ -54,30 +54,10 @@ x = f(f) € O(sin(poly(mksa)))
 O € O(1)
 i € O(&lt; 0)
 	</pre>
+	<script src="fractalfrandom.js"></script>
 	<script>
 
 
-	let _random = Math.random
-let randSeed = Math.random()
-let randFactor = 10000 + 10000 * _random()
-let randN = 100
-
-
-Math.random = function() {
-  //if(_random() < 0.75)
-    randSeed = (Math.sin(randFactor * randSeed) + 1) / 2
-    //else randSeed = _random()
-
-  //randN -= 1
-  //if(randN < 0) {
-    //if(_random() < 0.75)
-      randFactor = 10000 + 10000 * Math.pow(randSeed,_random() * 1.5 + 0.5) + 10000 * Math.pow(_random(),randSeed * 1.5 + 0.5)
-      // else randFactor = 10000 + 10000 * _random()
-
-    //randN = 100 * _random()
-    //}
-  return randSeed * 0.999
-}
 
 
 //for(let i = 0;i < 10000;++i) Math.random()

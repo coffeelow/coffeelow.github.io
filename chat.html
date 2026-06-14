@@ -1,181 +1,208 @@
-<!DOCTYPE html>
+<!doctype html>
 
 <html>
-<head>
-  
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <head>
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+        />
 
-  <meta http-equiv="CONTENT-TYPE" content="text/html; charset=UTF-8">
-  <title>Doctor Schizo</title>
-  <script src="md5.min.js"></script>
-</head>
-<body>
-  das einzige Paradies ist nur Allah <br>
-    "support my Google"<br>
-      a Schizo's story
-  
-  
-  <div id="google_translate_element"></div>
-<script type="text/javascript">
-  function googleTranslateElementInit() {
-    new google.translate.TranslateElement({pageLanguage: 'en'}, 'google_translate_element');
-  }
-</script>
-<script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+        <meta http-equiv="CONTENT-TYPE" content="text/html; charset=UTF-8" />
+        <title>Doctor Schizo</title>
+        <script src="md5.min.js"></script>
+    </head>
+    <body>
+        das einzige Paradies ist nur Allah <br />
+        "support my Google"<br />
+        a Schizo's story
 
-  
-  <div id='x' style='border-width:5px;width:90%;height:90%;border-color:black;border-style:outset'>
-  </div>
-  <input type='text' id='y'  style="width:90%">
-  
-  <script>
+        <div id="google_translate_element"></div>
+        <script type="text/javascript">
+            function googleTranslateElementInit() {
+                new google.translate.TranslateElement(
+                    { pageLanguage: "en" },
+                    "google_translate_element",
+                );
+            }
+        </script>
+        <script
+            type="text/javascript"
+            src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"
+        ></script>
 
-function cyrb128(str) {
-    let h1 = 1779033703, h2 = 3144134277,
-        h3 = 1013904242, h4 = 2773480762;
-    for (let i = 0, k; i < str.length; i++) {
-        k = str.charCodeAt(i)
-        h1 = h2 ^ Math.imul(h1 ^ k, 597399067);
-        h2 = h3 ^ Math.imul(h2 ^ k, 2869860233);
-        h3 = h4 ^ Math.imul(h3 ^ k, 951274213);
-        h4 = h1 ^ Math.imul(h4 ^ k, 2716044179);
-    }
-    h1 = Math.imul(h3 ^ (h1 >>> 18), 597399067);
-    h2 = Math.imul(h4 ^ (h2 >>> 22), 2869860233);
-    h3 = Math.imul(h1 ^ (h3 >>> 17), 951274213);
-    h4 = Math.imul(h2 ^ (h4 >>> 19), 2716044179);
-    h1 ^= (h2 ^ h3 ^ h4), h2 ^= h1, h3 ^= h1, h4 ^= h1;
-    return [h1>>>0, h2>>>0, h3>>>0, h4>>>0];
-}
+        <div
+            id="x"
+            style="
+                border-width: 5px;
+                width: 90%;
+                height: 90%;
+                border-color: black;
+                border-style: outset;
+            "
+        ></div>
+        <input type="text" id="y" style="width: 90%" />
 
-var seed = 0
+        <script src="fractalfrandom.js"></script>
+        <script>
+            function choose(xs) {
+                return xs[Math.floor(xs.length * Math.random())];
+            }
 
-function sfc32(a, b, c, d) {
-  return function() {
-    a |= 0; b |= 0; c |= 0; d |= 0;
-    let t = (a + b | 0) + d | 0;
-    d = d + 1 | 0;
-    a = b ^ b >>> 9;
-    b = c + (c << 3) | 0;
-    c = (c << 21 | c >>> 11);
-    c = c + t | 0;
-    return (t >>> 0) / 4294967296;
-  }
-}
+            let verbs = [
+                "read",
+                "write",
+                "drive",
+                "paint",
+                "have",
+                "make",
+                "know",
+                "get",
+                "think",
+                "see",
+                "watch",
+                "make",
+                "give",
+                "use",
+            ];
 
+            let nouns = [
+                "car",
+                "baer",
+                "house",
+                "tree",
+                "bird",
+                "animal",
+                "nose",
+                "street",
+                "area",
+                "book",
+                "business",
+                "case",
+                "child",
+                "company",
+                "country",
+                "day",
+                "eye",
+                "fact",
+                "family",
+                "government",
+                "group",
+                "hand",
+                "home",
+                "job",
+            ];
 
+            let adjectives = [
+                "flat",
+                "black",
+                "white",
+                "steep",
+                "big",
+                "small",
+                "able",
+                "bad",
+                "best",
+                "better",
+                "big",
+                "black",
+                "certain",
+                "clear",
+                "different",
+                "early",
+                "easy",
+                "economic",
+                "federal",
+                "free",
+                "full",
+                "good",
+                "great",
+                "hard",
+            ];
 
-    
-  function choose(xs) {
-    return xs[Math.floor(xs.length * Math.random())]
-  }
-  
-  let verbs = [
-  "read","write","drive",
-  "paint","have","make","know","get","think",
-    "see","watch","make","give","use"
-  ]
-  
-  let nouns = [
-  "car","baer","house",
-  "tree","bird","animal",
-  "nose","street","area","book","business",
-  "case","child","company","country","day","eye",
-  "fact","family","government","group","hand","home","job"
-  ]
-  
-  let adjectives = [
-  "flat","black","white",
-  "steep","big","small","able","bad","best","better","big","black",
-  "certain","clear","different","early","easy","economic","federal",
-  "free","full","good","great","hard"
-  ]
-  
-  
-  function subject(plural) {
-    if(plural){
-     return  choose(adjectives)
-        + " "
-        + choose(nouns) + "s"
-    }  else{
-         return choose(adjectives)
-        + " "
-        + choose(nouns)
-    }
-  }
-  
-  function predicate(plural) {
-    if(!plural){
-     return choose(adjectives)
-        + "ly "
-        + choose(verbs) + "s"
-    } else{
-         return   choose(adjectives)
-        + "ly "
-        + choose(verbs)
-    }
-  }
+            function subject(plural) {
+                if (plural) {
+                    return choose(adjectives) + " " + choose(nouns) + "s";
+                } else {
+                    return choose(adjectives) + " " + choose(nouns);
+                }
+            }
 
-    function prefix(plural) {
-      let x = choose(["","only"]) + " "
+            function predicate(plural) {
+                if (!plural) {
+                    return choose(adjectives) + "ly " + choose(verbs) + "s";
+                } else {
+                    return choose(adjectives) + "ly " + choose(verbs);
+                }
+            }
 
-      
-      if(plural)
-        x += choose(["several","many","few","a few"])
-      else
-        x += choose(["a","the"]) + " " + choose(["single",""])
+            function prefix(plural) {
+                let x = choose(["", "only"]) + " ";
 
-      return x
-    }
-    
-  function sentence() {
-    let plural0 = Math.random() < 0.5
-    let plural1 = Math.random() < 0.5
-      
-    
-    return prefix(plural0) + " " + subject(plural0)
-      + " " + predicate(plural0)
-      + " " + prefix(plural1) + " " + subject(plural1)
-  }
-  
-  function upFirst(str) {
-    return str.substring(0,1).toUpperCase() + str.substring(1,str.length)
-  }
-    
-  document.getElementById("y").addEventListener("keydown", function(event) {
-    switch(event.key) {
-        case "ArrowLeft":
-            // Torwart nach links bewegen
-            console.log("Nach links!");
-            break;
-        case "ArrowRight":
-            // Torwart nach rechts bewegen
-            console.log("Nach rechts!");
-            break;
-        case "Enter":
-      document.getElementById ("x").innerHTML += upFirst(document.getElementById("y").value) + ". <br/> "
-      document.getElementById("x").innerHTML += upFirst(sentence()) + ". <br/> "
-      document.getElementById("y").value = ""
+                if (plural) x += choose(["several", "many", "few", "a few"]);
+                else x += choose(["a", "the"]) + " " + choose(["single", ""]);
 
-        seed = cyrb128(document.getElementById ("x").innerHTML)
-      void(0)
-      // Aktion / Schießen
-            console.log("Enter gedrückt");
-            break;
-        default:
-            return; // Beendet die Funktion, wenn eine andere Taste gedrückt wurde
-    }
-    
-    // Verhindert, dass die Seite scrollt, wenn man die Pfeiltasten drückt
-    event.preventDefault();
-});
+                return x;
+            }
 
-  
-  document.getElementById("x").innerHTML = new Date() + ' <br/>Textabenteuer: „Rainbow Six in Vietnam" <br/> '
+            function sentence() {
+                let plural0 = Math.random() < 0.5;
+                let plural1 = Math.random() < 0.5;
 
-  
-  </script>  
-  
-</body>
+                return (
+                    prefix(plural0) +
+                    " " +
+                    subject(plural0) +
+                    " " +
+                    predicate(plural0) +
+                    " " +
+                    prefix(plural1) +
+                    " " +
+                    subject(plural1)
+                );
+            }
+
+            function upFirst(str) {
+                return (
+                    str.substring(0, 1).toUpperCase() +
+                    str.substring(1, str.length)
+                );
+            }
+
+            document
+                .getElementById("y")
+                .addEventListener("keydown", function (event) {
+                    switch (event.key) {
+                        case "ArrowLeft":
+                            // Torwart nach links bewegen
+                            console.log("Nach links!");
+                            break;
+                        case "ArrowRight":
+                            // Torwart nach rechts bewegen
+                            console.log("Nach rechts!");
+                            break;
+                        case "Enter":
+                            document.getElementById("x").innerHTML +=
+                                upFirst(document.getElementById("y").value) +
+                                ". <br/> ";
+                            document.getElementById("x").innerHTML +=
+                                upFirst(sentence()) + ". <br/> ";
+                            document.getElementById("y").value = "";
+
+                            void 0;
+                            // Aktion / Schießen
+                            console.log("Enter gedrückt");
+                            break;
+                        default:
+                            return; // Beendet die Funktion, wenn eine andere Taste gedrückt wurde
+                    }
+
+                    // Verhindert, dass die Seite scrollt, wenn man die Pfeiltasten drückt
+                    event.preventDefault();
+                });
+
+            document.getElementById("x").innerHTML =
+                new Date() +
+                ' <br/>Textabenteuer: „Rainbow Six in Vietnam" <br/> ';
+        </script>
+    </body>
 </html>
-

@@ -1,147 +1,87 @@
-<!DOCTYPE html>
+<!doctype html>
 
 <html>
-<head>
-  <meta http-equiv="CONTENT-TYPE" content="text/html; charset=UTF-8">
-  <title>Markov Würfel</title>
+    <head>
+        <meta http-equiv="CONTENT-TYPE" content="text/html; charset=UTF-8" />
+        <title>Markov Würfel</title>
+        <script src="fractalfrandom.js"></script>
+        <script>
+            function words(str) {
+                let ws = [];
+                let w = "";
+                let s = str.trim();
 
-  <script>
-    
-		
-function cyrb128(str) {
-    let h1 = 1779033703, h2 = 3144134277,
-        h3 = 1013904242, h4 = 2773480762;
-    for (let i = 0, k; i < str.length; i++) {
-        k = str.charCodeAt(i)
-        h1 = h2 ^ Math.imul(h1 ^ k, 597399067);
-        h2 = h3 ^ Math.imul(h2 ^ k, 2869860233);
-        h3 = h4 ^ Math.imul(h3 ^ k, 951274213);
-        h4 = h1 ^ Math.imul(h4 ^ k, 2716044179);
-    }
-    h1 = Math.imul(h3 ^ (h1 >>> 18), 597399067);
-    h2 = Math.imul(h4 ^ (h2 >>> 22), 2869860233);
-    h3 = Math.imul(h1 ^ (h3 >>> 17), 951274213);
-    h4 = Math.imul(h2 ^ (h4 >>> 19), 2716044179);
-    h1 ^= (h2 ^ h3 ^ h4), h2 ^= h1, h3 ^= h1, h4 ^= h1;
-    return [h1>>>0, h2>>>0, h3>>>0, h4>>>0];
-}
+                for (let i = 0; i < s.length; ++i) {
+                    if (s.charAt(i).trim().length == 0) {
+                        while (s.charAt(i).trim().length == 0) ++i;
 
-var seed = cyrb128((new Date()).toString())
+                        w = w.toLowerCase().replace(/[^a-zäöüßß]/g, "");
+                        if (w.length > 0) ws.push(w);
 
-function sfc32(a, b, c, d) {
-  return function() {
-    a |= 0; b |= 0; c |= 0; d |= 0;
-    let t = (a + b | 0) + d | 0;
-    d = d + 1 | 0;
-    a = b ^ b >>> 9;
-    b = c + (c << 3) | 0;
-    c = (c << 21 | c >>> 11);
-    c = c + t | 0;
-    return (t >>> 0) / 4294967296;
-  }
-}
-    
-    
-    
-  
-  function words(str) {
-    let ws = []
-    let w = ""
-    let s = str.trim()
-    
-    for(let i = 0;i < s.length;++i) {
-     if(s.charAt(i).trim().length == 0) {
-         while(s.charAt(i).trim().length == 0) ++i
-       
-         w = w.toLowerCase().replace(/[^a-zäöüßß]/g,"")
-         if(w.length > 0)
-           ws.push(w)
-       
-       w = ""
-     }
-      w += s.charAt(i)
-    }
-      ws.push(w)
-     
-      return ws
-  }
-  
-  
-  function markov(str) {
-    let ws = words(str)
-    let mv = []
-    
-    for(let i = 0;i < ws.length - 4;++i) {
-      let l = []
-      for(let j = 0;j < 4;j++) {
-        l.push(ws[i + j])
-      }
-        mv.push(l)
-    }
-      
-      return mv
-  }
-  
-  let mkv
-  let current
-  
-  
-  function doRead() {
-    let st = ""
-    let c0 = current
-    
-    for(let k = 0;k < 100;++k) {
-      
-     
-    let cs = []
-    mkv.forEach((m) => {
-      let found = true
-      for(let i = 0;i < m.length - 1;++i)
-        if(current[i + 1] != m[i])
-          found = false
-        
-      if(found) cs.push(m)
-    }
-    )
-    if(cs.length > 0) 
-    current = cs[Math.floor( Math.random() * cs.length)]
-      else
-      current = mkv[Math.floor(Math.random() * mkv.length)]
-      
-      st += current[0] + " "
-   
-    
-    
-      
-      /*else{
-      k = 0
-      st = ""
-      current = c0
-    }*/
-    }
-      
-      
-      const nachricht = new SpeechSynthesisUtterance(st)
-      nachricht.rate = 0.5
-        window.speechSynthesis.speak(nachricht)
+                        w = "";
+                    }
+                    w += s.charAt(i);
+                }
+                ws.push(w);
 
-        seed = cyrb128(st)
-      
-      window.setTimeout(doRead,1)
-  }
-  
-  function read() {
-    mkv = markov(document.getElementById("x").innerHTML)
-    current = mkv[Math.floor(Math.random() * mkv.length)]
-    doRead()
-  }
-  </script>
-</head>
-<body>
-  
-  <button onclick="read()">märchen vorlesen</button>
-  
-  <pre id="x">
+                return ws;
+            }
+
+            function markov(str) {
+                let ws = words(str);
+                let mv = [];
+
+                for (let i = 0; i < ws.length - 4; ++i) {
+                    let l = [];
+                    for (let j = 0; j < 4; j++) {
+                        l.push(ws[i + j]);
+                    }
+                    mv.push(l);
+                }
+
+                return mv;
+            }
+
+            let mkv;
+            let current;
+
+            function doRead() {
+                let st = "";
+                let c0 = current;
+
+                for (let k = 0; k < 100; ++k) {
+                    let cs = [];
+                    mkv.forEach((m) => {
+                        let found = true;
+                        for (let i = 0; i < m.length - 1; ++i)
+                            if (current[i + 1] != m[i]) found = false;
+
+                        if (found) cs.push(m);
+                    });
+                    if (cs.length > 0)
+                        current = cs[Math.floor(Math.random() * cs.length)];
+                    else current = mkv[Math.floor(Math.random() * mkv.length)];
+
+                    st += current[0] + " ";
+                }
+
+                const nachricht = new SpeechSynthesisUtterance(st);
+                nachricht.rate = 0.5;
+                window.speechSynthesis.speak(nachricht);
+                window.setTimeout(doRead, 1);
+            }
+
+            function read() {
+                mkv = markov(document.getElementById("x").innerHTML);
+                current = mkv[Math.floor(Math.random() * mkv.length)];
+                doRead();
+            }
+        </script>
+    </head>
+    <body>
+        <button onclick="read()">märchen vorlesen</button>
+
+        <pre id="x">
 Ein Theil der Tartarei ward vom Sultan Ali beherrscht. – Dem Tirannen entgeht der Haß nie, mit dem ihn seine Unterthanen verfolgen und Ali betrachtete sie bald als eben so viele Feinde, über die ihn nur seine Grausamkeit und sein Ansehn erhalten könnten: mit andern Freuden unbekannt, sollte ihm das Gefühl seiner Macht jeden Mangel ersetzen.
 
 Ohne Begriffe, ohne zu denken, ohne nur Seelengenuß zu kennen, war er zum Greise geworden und in einer unerschöpflichen Leere schmachtete er itzt jedem neuen Tage entgegen. Mehrere seiner Gemalinnen starben und er begrub sie mit eben der Gleichmuth, mit der er den Untergang der Sonne sahe, die, wie er wußte, jenseit des Horizonts wieder heraufstieg, – selbst sein einziges Kind Zulma liebte er nicht, nur Stolz war es, was ihn an diese fesselte, da das ganze Land sie für die Krone der Schönheit anerkannte. –
@@ -837,7 +777,7 @@ Omar ging und sprach einige Worte, um den berauschten Abdallah noch einmal an di
 
 Selim und Abubeker hatten indeß schon mehrmals ihre Freunde versammelt, der Strom war hoch gegen seinen Damm angeschwollen und erwartete noch die letzte Welle, um ihn zu durchbrechen und über die Flur seinen verderblichen Grimm auszugießen.
 
-Sklaven wurden im Pallast Selims verborgen gehalten und bewaffnet, jede Art der Rüstungen in unterirdischen Gewölben verwahrt, heimliche Zeichen unter den Verschwornen verabredet, die sich durch heilige Eide verbanden. Ein mächtiges Feuer loderte in allen Herzen und brannte zur Vernichtung Ali's, Redlichkeit hielt den geheimen Bund mit unzerbrechlichen Fesseln zusammen. – Omar trat itzt zum letztenmal in ihre Versammlung, dann nahm er Abschied und trat seine Reise an. 
+Sklaven wurden im Pallast Selims verborgen gehalten und bewaffnet, jede Art der Rüstungen in unterirdischen Gewölben verwahrt, heimliche Zeichen unter den Verschwornen verabredet, die sich durch heilige Eide verbanden. Ein mächtiges Feuer loderte in allen Herzen und brannte zur Vernichtung Ali's, Redlichkeit hielt den geheimen Bund mit unzerbrechlichen Fesseln zusammen. – Omar trat itzt zum letztenmal in ihre Versammlung, dann nahm er Abschied und trat seine Reise an.
 
 
 
@@ -1134,7 +1074,7 @@ Omar hielt hier in seiner Erzählung ein. – »Und du schwurst den Eid?« rief 
 
 »Mich zermalmten unaussprechliche Martern. Eine heiße Gluth webte sich am Tage um mich her und nagte und saugte an meinen Gebeinen, Flammen bohrten sich glühend in mein Innres und in der Nacht jagten sich kalte Nordwinde um mich her und bliesen mich mit ihrem Athem an, ein Panzer von Eis umgab meinen Körper und zerschmolz wieder an der Gluth des Morgens. Siedende Waldströme stürzten brausend auf mich herab und schmetterten spielend mein Gebein gegen hervorragende Felsenspitzen. Mein Geheul erklang fürchterlich den Abgrund hinab, und sprang von Klippe zu Klippe, eine taube stumme Einsamkeit lag kalt und ohne Mitleid um mich her. – So brüllte ich vier Jahr meine Flüche und meine Bitten dem unerweichlichen Mondal entgegen, aber er hörte mich nicht; zuweilen flog er auf einer braunen Wolke über mein Haupt, sahe höhnisch auf mich herab, freute sich meiner Quaalen und überließ mich dann von neuem den unerbittlichen Martern. – Endlich schien er gerührt, oder der alten Ergötzung überdrüssig, denn welches Mitleid sollte diese steinerne Brust bewohnen? – Ich will dich von deiner Kette losnehmen, rief er und neigte sich wie ein Gewitter weiter auf mich herab, aber nur unter einer schweren Bedingung geb' ich dich frei.« – – – –
 
-Abdallah wollte unter Schaudern weiter lesen, als sich ein lautes Getümmel im Hofe des Pallastes erhob. – Bestürzt eilte er an's Fenster – und die furchtbaren Palmblätter entsanken seiner Hand. – 
+Abdallah wollte unter Schaudern weiter lesen, als sich ein lautes Getümmel im Hofe des Pallastes erhob. – Bestürzt eilte er an's Fenster – und die furchtbaren Palmblätter entsanken seiner Hand. –
 
 
 
@@ -1944,7 +1884,7 @@ Man hörte laut Ketten klirren; Abdallah fuhr aus seinem Todtenschlafe auf. –
 
 Ketten? sagte er leise. – Ketten? – O wohin soll ich mich verbergen? –
 
-Das Geräusch kam näher, Abdallah drückte sich fester an die Mauer und bedeckte mit den Händen das Gesicht. 
+Das Geräusch kam näher, Abdallah drückte sich fester an die Mauer und bedeckte mit den Händen das Gesicht.
 
 
 
@@ -2391,7 +2331,7 @@ Das hagre Gesicht beugte sich fürchterlich auf ihn herab. – Elender, krächzt
 
 Abdallah lag noch ohne Bewegung auf dem Polster. –
 
-Es hob sich neben ihm auf, ging zur Thür, er hörte sie öffnen, der Fremde ging hinaus und schloß sie hinter sich wieder zu. – 
+Es hob sich neben ihm auf, ging zur Thür, er hörte sie öffnen, der Fremde ging hinaus und schloß sie hinter sich wieder zu. –
 
 
 
@@ -2425,8 +2365,9 @@ Als die Sklaven sich am Morgen zitternd in den Saal schlichen, fanden sie Abdall
 
 
 
-    
-  
-  </pre>
-</body>
+
+
+  </pre
+        >
+    </body>
 </html>
