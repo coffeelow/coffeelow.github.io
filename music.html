@@ -460,16 +460,23 @@ async function sound() {
       let y = 0
 
 
-       if(n == 0) y = Math.sin(2 * Math.PI * freq * t)
-       if(n == 1) y = Math.sign(Math.sin(2 * Math.PI * freq * t))
-
-
       let amplitude = 1.0;
+
+      if(n == 0) {
+        y = Math.sin(2 * Math.PI * freq * t)
+        amplitude *= 1.0
+      }
+       if(n == 1) {
+         y = Math.sign(Math.sin(2 * Math.PI * freq * t))
+         amplitude *= 0.5
+       }
+
+
       if (rands[j++] < 0.5) {
           let attackTime = rands[j++] * 0.2 + 0.02;
-          if (t < attackTime) amplitude = t / attackTime;
+          if (t < attackTime) amplitude *= t / attackTime;
       } else {
-          if (t < 0.002) amplitude = t / 0.002;
+          if (t < 0.002) amplitude *= t / 0.002;
       }
 
       if (rands[j++] < 0.5) {
