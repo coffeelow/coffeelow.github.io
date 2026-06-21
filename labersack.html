@@ -1,0 +1,188 @@
+<!doctype html>
+
+<html>
+    <head>
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+        />
+
+        <meta http-equiv="CONTENT-TYPE" content="text/html; charset=UTF-8" />
+        <title>Doctor Schizo</title>
+    </head>
+    <body>
+        das einzige Paradies ist nur Allah <br />
+        "support my Google"<br />
+        a Schizo's story
+
+        <div
+            id="x"
+            style="
+                border-width: 5px;
+                width: 90%;
+                height: 90%;
+                border-color: black;
+                border-style: outset;
+            "
+        ></div>
+
+        <script src="fractalfrandom.js"></script>
+        <script>
+            function choose(xs) {
+                return xs[Math.floor(xs.length * Math.random())];
+            }
+
+            let verbs = [
+                "read",
+                "write",
+                "drive",
+                "paint",
+                "have",
+                "make",
+                "know",
+                "get",
+                "think",
+                "see",
+                "watch",
+                "make",
+                "give",
+                "use",
+            ];
+
+            let nouns = [
+                "car",
+                "baer",
+                "house",
+                "tree",
+                "bird",
+                "animal",
+                "nose",
+                "street",
+                "area",
+                "book",
+                "business",
+                "case",
+                "child",
+                "company",
+                "country",
+                "day",
+                "eye",
+                "fact",
+                "family",
+                "government",
+                "group",
+                "hand",
+                "home",
+                "job",
+            ];
+
+            let adjectives = [
+                "flat",
+                "black",
+                "white",
+                "steep",
+                "big",
+                "small",
+                "able",
+                "bad",
+                "best",
+                "better",
+                "big",
+                "black",
+                "certain",
+                "clear",
+                "different",
+                "early",
+                "easy",
+                "economic",
+                "federal",
+                "free",
+                "full",
+                "good",
+                "great",
+                "hard",
+            ];
+
+            function subject(plural) {
+                if (plural) {
+                    return choose(adjectives) + " " + choose(nouns) + "s";
+                } else {
+                    return choose(adjectives) + " " + choose(nouns);
+                }
+            }
+
+            function predicate(plural) {
+                if (!plural) {
+                    return choose(adjectives) + "ly " + choose(verbs) + "s";
+                } else {
+                    return choose(adjectives) + "ly " + choose(verbs);
+                }
+            }
+
+            function prefix(plural) {
+                let x = choose(["", "only"]) + " ";
+
+                if (plural) x += choose(["several", "many", "few", "a few"]);
+                else x += choose(["a", "the"]) + " " + choose(["single", ""]);
+
+                return x;
+            }
+
+            function sentence() {
+                let plural0 = Math.random() < 0.5;
+                let plural1 = Math.random() < 0.5;
+
+                return (
+                    prefix(plural0) +
+                    " " +
+                    subject(plural0) +
+                    " " +
+                    predicate(plural0) +
+                    " " +
+                    prefix(plural1) +
+                    " " +
+                    subject(plural1)
+                );
+            }
+
+            function upFirst(str) {
+                return (
+                    str.substring(0, 1).toUpperCase() +
+                    str.substring(1, str.length)
+                );
+            }
+
+            document.getElementById("x").innerHTML =
+                new Date() +
+                ' <br/>Textabenteuer: „Rainbow Six in Vietnam" <br/> ';
+
+            function laber() {
+                let s = upFirst(sentence());
+                switch (Math.floor(Math.random() * 4)) {
+                    case 0:
+                        s += ", because " + sentence();
+                        break;
+                    case 1:
+                        s += ", until " + sentence();
+                        break;
+                    case 2:
+                        s += ", while " + sentence();
+                        break;
+                    default:
+                        break;
+                }
+                s += ".";
+
+                document.getElementById("x").innerHTML += s + "<br>";
+                const msg = new SpeechSynthesisUtterance(s);
+                msg.onend = function (event) {
+                    window.setTimeout(laber, 1000 + 4000 * Math.random());
+                };
+                msg.lang = "en-US";
+                window.speechSynthesis.speak(msg);
+            }
+
+            laber();
+        </script>
+    </body>
+</html>
