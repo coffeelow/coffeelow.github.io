@@ -25,9 +25,90 @@
                 border-style: outset;
             "
         ></div>
-
+        <img id="img" style="width:95%;height:600px;"
         <script src="fractalfrandom.js"></script>
         <script>
+            let cards = [
+                "img/tarot_rw_1.jpg",
+                "img/tarot_rw_10.jpg",
+                "img/tarot_rw_11.jpg",
+                "img/tarot_rw_12.jpg",
+                "img/tarot_rw_13.jpg",
+                "img/tarot_rw_14.jpg",
+                "img/tarot_rw_15.jpg",
+                "img/tarot_rw_16.jpg",
+                "img/tarot_rw_17.jpg",
+                "img/tarot_rw_18.jpg",
+                "img/tarot_rw_19.jpg",
+                "img/tarot_rw_2.jpg",
+                "img/tarot_rw_20.jpg",
+                "img/tarot_rw_21.jpg",
+                "img/tarot_rw_22.jpg",
+                "img/tarot_rw_23.jpg",
+                "img/tarot_rw_24.jpg",
+                "img/tarot_rw_25.jpg",
+                "img/tarot_rw_26.jpg",
+                "img/tarot_rw_27.jpg",
+                "img/tarot_rw_28.jpg",
+                "img/tarot_rw_29.jpg",
+                "img/tarot_rw_3.jpg",
+                "img/tarot_rw_30.jpg",
+                "img/tarot_rw_31.jpg",
+                "img/tarot_rw_32.jpg",
+                "img/tarot_rw_33.jpg",
+                "img/tarot_rw_34.jpg",
+                "img/tarot_rw_35.jpg",
+                "img/tarot_rw_36.jpg",
+                "img/tarot_rw_37.jpg",
+                "img/tarot_rw_38.jpg",
+                "img/tarot_rw_39.jpg",
+                "img/tarot_rw_4.jpg",
+                "img/tarot_rw_40.jpg",
+                "img/tarot_rw_41.jpg",
+                "img/tarot_rw_42.jpg",
+                "img/tarot_rw_43.jpg",
+                "img/tarot_rw_44.jpg",
+                "img/tarot_rw_45.jpg",
+                "img/tarot_rw_46.jpg",
+                "img/tarot_rw_47.jpg",
+                "img/tarot_rw_48.jpg",
+                "img/tarot_rw_49.jpg",
+                "img/tarot_rw_5.jpg",
+                "img/tarot_rw_50.jpg",
+                "img/tarot_rw_51.jpg",
+                "img/tarot_rw_52.jpg",
+                "img/tarot_rw_53.jpg",
+                "img/tarot_rw_54.jpg",
+                "img/tarot_rw_55.jpg",
+                "img/tarot_rw_56.jpg",
+                "img/tarot_rw_57.jpg",
+                "img/tarot_rw_58.jpg",
+                "img/tarot_rw_59.jpg",
+                "img/tarot_rw_6.jpg",
+                "img/tarot_rw_60.jpg",
+                "img/tarot_rw_61.jpg",
+                "img/tarot_rw_62.jpg",
+                "img/tarot_rw_63.jpg",
+                "img/tarot_rw_64.jpg",
+                "img/tarot_rw_65.jpg",
+                "img/tarot_rw_66.jpg",
+                "img/tarot_rw_67.jpg",
+                "img/tarot_rw_68.jpg",
+                "img/tarot_rw_69.jpg",
+                "img/tarot_rw_7.jpg",
+                "img/tarot_rw_70.jpg",
+                "img/tarot_rw_71.jpg",
+                "img/tarot_rw_72.jpg",
+                "img/tarot_rw_73.jpg",
+                "img/tarot_rw_74.jpg",
+                "img/tarot_rw_75.jpg",
+                "img/tarot_rw_76.jpg",
+                "img/tarot_rw_77.jpg",
+                "img/tarot_rw_78.jpg",
+                "img/tarot_rw_8.jpg",
+                "img/tarot_rw_9.jpg",
+            ];
+
             function choose(xs) {
                 return xs[Math.floor(xs.length * Math.random())];
             }
@@ -173,12 +254,13 @@
                 }
                 s += ".";
 
-                document.getElementById("x").innerHTML += s + "<br>";
+                document.getElementById("x").innerHTML = s + "<br>";
                 const msg = new SpeechSynthesisUtterance(s);
                 msg.onend = function (event) {
                     window.setTimeout(laber, 1000 + 4000 * Math.random());
                 };
                 msg.lang = "en-US";
+                document.getElementById("img").src = choose(cards)
                 window.speechSynthesis.speak(msg);
             }
 
