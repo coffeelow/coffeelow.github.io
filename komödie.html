@@ -58,17 +58,23 @@
 
                         if (found) cs.push(m);
                     });
-                    if (cs.length > 0)
+                    if (cs.length > 0) {
+                        //console.log(current);
                         current = cs[Math.floor(Math.random() * cs.length)];
-                    else current = mkv[Math.floor(Math.random() * mkv.length)];
+                        //console.log(cs.length);
+                        //console.log(cs.join("\n"));
+                    }
+                    //else current = mkv[Math.floor(Math.random() * mkv.length)];
 
                     st += current[0] + " ";
                 }
 
                 const nachricht = new SpeechSynthesisUtterance(st);
                 nachricht.rate = 0.5;
+                nachricht.onend = function (event) {
+                    doRead();
+                };
                 window.speechSynthesis.speak(nachricht);
-                window.setTimeout(doRead, 1);
             }
 
             function read() {
