@@ -15,7 +15,7 @@
                     if (s.charAt(i).trim().length == 0) {
                         while (s.charAt(i).trim().length == 0) ++i;
 
-                        w = w.toLowerCase().replace(/[^a-zäöüßß]/g, "");
+                        w = w.toLowerCase().replace(/[^a-zäöüß]/g, "");
                         if (w.length > 0) ws.push(w);
 
                         w = "";
@@ -31,9 +31,9 @@
                 let ws = words(str);
                 let mv = [];
 
-                for (let i = 0; i < ws.length - 4; ++i) {
+                for (let i = 0; i < ws.length - 3; ++i) {
                     let l = [];
-                    for (let j = 0; j < 4; j++) {
+                    for (let j = 0; j < 3; j++) {
                         l.push(ws[i + j]);
                     }
                     mv.push(l);
@@ -54,7 +54,7 @@
                     mkv.forEach((m) => {
                         let found = true;
                         for (let i = 0; i < m.length - 1; ++i)
-                            if (current[i + 1] != m[i]) found = false;
+                            if (current[i + 1] !== m[i]) found = false;
 
                         if (found) cs.push(m);
                     });
@@ -2367,7 +2367,6 @@ Als die Sklaven sich am Morgen zitternd in den Saal schlichen, fanden sie Abdall
 
 
 
-  </pre
-        >
+  </pre>
     </body>
 </html>
