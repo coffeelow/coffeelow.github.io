@@ -485,6 +485,9 @@ async function sound() {
           amplitude *= Math.exp(-t / (duration * 0.4));
       }
 
+      let w = rands[++j]
+      let v = rands[++j]
+      amplitude *= w * 0.5 * Math.sin(0.025 * v * t * freq * 2 * Math.PI) + 0.5 + 1 - w
 
       return y * amplitude
     }).setOutput([audioCtx.sampleRate]);
@@ -599,14 +602,14 @@ _instrumentGPU = gpu.createKernel(function(sampleRate, tone, rands, duration) {
 
 
 	let normalize = function(xs) {
-/*
+
 		var min = 1000000;
 		var max = -1000000;
 		for(let i = 0;i < xs.length;++i) if(xs[i] > max) max = xs[i]; else if(xs[i] < min) min = xs[i];
 		var a = Math.max(Math.abs(max),Math.abs(min));
 		//for(let i = 0;i < xs.length;++i) xs[i] = 2 * (xs[i] - min) / (max - min) - 1;
 		for(let i = 0;i < xs.length;++i) xs[i] /= a
-*/
+
 
 		return xs;
 	};
