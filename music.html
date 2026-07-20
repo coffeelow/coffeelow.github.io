@@ -217,7 +217,7 @@ render(buffer,offset,tone,duration,vol) {
 	for(var channel = 0; channel < channels; channel++) {
 	var nowBuffering = buffer.getChannelData(channel);
 	var xs = this.wave(audioCtx.sampleRate,this.tone + tone,this.rands,duration,this.waveGPU)
-	for(let i = 0;i < xs.length;++i) if(i + offset + n < nowBuffering.length) nowBuffering[i + offset + n] += xs[i] * 0.2 * vol * this.chVols[channel];
+	for(let i = 0;i < xs.length;++i) if(i + offset + n < nowBuffering.length) nowBuffering[i + offset + n] += xs[i] * 0.4 * vol * this.chVols[channel];
 }
 }
 }
