@@ -485,7 +485,7 @@ async function sound() {
           amplitude *= Math.exp(-t / (duration * 0.4));
       }
 
-      let w = rands[++j]
+      let w = rands[++j] * 0.5
       let v = rands[++j]
       amplitude *= w * 0.5 * Math.sin(0.025 * v * t * freq * 2 * Math.PI) + 0.5 + 1 - w
 
