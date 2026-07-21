@@ -257,7 +257,7 @@
                 document.getElementById("x").innerHTML = s + "<br>";
                 const msg = new SpeechSynthesisUtterance(s);
                 msg.onend = function (event) {
-                    window.setTimeout(laber, 1000 + 4000 * Math.random());
+                    window.setTimeout(laber, 1000 + 10000 * Math.random());
                 };
                 msg.lang = "en-US";
                 document.getElementById("img").src = choose(cards)
