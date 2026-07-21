@@ -54,7 +54,7 @@ x = f(f) € O(sin(poly(mksa)))
 O € O(1)
 i € O(&lt; 0)
 	</pre>
-	<script src="fractalfrandom.js"></script>
+	<!--<script src="fractalfrandom.js"></script>-->
 	<script>
 
 
@@ -376,7 +376,7 @@ function make() {
     if(taken) {
         frameCount = audioCtx.sampleRate * seconds
         myArrayBuffer = audioCtx.createBuffer(channels, frameCount, audioCtx.sampleRate);
-        speed = 0.175 + _random() * 0.11
+        speed = 0.175 + Math.random() * 0.11
         makeScale();
         ms = [];
 let waves = [instrument]
@@ -424,7 +424,7 @@ let waves = [instrument]
 
 				for(let k = 0;k < cnt;++k) {
 					if(m.i < frameCount) {
-						if(_random() < 0.5) m.play(myArrayBuffer,m.i);
+						if(Math.random() < 0.5) m.play(myArrayBuffer,m.i);
 						m.i += Math.round(2 * speed * m.stepSize * audioCtx.sampleRate / cnt)
 					} else
 						m.i = frameCount;
