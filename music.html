@@ -450,149 +450,117 @@ let sineGPU
 async function sound() {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)()
     await audioCtx.resume()
+
+
+
+
     instrumentGPU = gpu.createKernel(function(sampleRate, tone, rands, duration) {
       let freq = 440.0 * Math.pow(2.0, tone / 12.0);
       let t = this.thread.x / sampleRate;
-      let j = 0
+      let pi2 = 2.0 * Math.PI;
 
-      let n = Math.floor(2 * rands[j++])
+      // ==========================================
+      // 1. ZUFÄLLIGES INSTRUMENT (rands[0] - rands[2])
+      // ==========================================
+      // 0: Sinus, 1: Rechteck, 2: Sägezahn, 3: Dreieck, 4: FM Synth, 5: Sub-Harmonic/Dual-Tone
+      let instType = Math.floor(6.0 * rands[0]);
+      let y = 0.0;
+      let baseAmp = 1.0;
 
-      let y = 0
-
-
-      let amplitude = 1.0;
-
-      if(n == 0) {
-        y = Math.sin(2 * Math.PI * freq * t)
-        amplitude *= 1.0
+      if (instType == 0) {
+        // Basic Sinus (Klassisch & Punchy)
+        y = Math.sin(pi2 * freq * t);
       }
-       if(n == 1) {
-         y = Math.sign(Math.sin(2 * Math.PI * freq * t))
-         amplitude *= 0.5
-       }
+      else if (instType == 1) {
+        // Rechteckwelle (8-Bit / Hard Lead)
+        y = Math.sin(pi2 * freq * t) >= 0.0 ? 0.7 : -0.7;
+      }
+      else if (instType == 2) {
+        // Sägezahnwelle (Scharf & Durchdringend)
+        let phase = (t * freq) - Math.floor(t * freq);
+        y = 2.0 * phase - 1.0;
+      }
+      else if (instType == 3) {
+        // Dreieckwelle (Knackiger Bass)
+        let phase = (t * freq) - Math.floor(t * freq);
+        y = 2.0 * Math.abs(2.0 * phase - 1.0) - 1.0;
+      }
+      else if (instType == 4) {
+        // FM-Synthese (Metallisch / Crisp)
+        let modRatio = Math.floor(1.0 + rands[1] * 5.0);
+        let modDepth = rands[2] * 8.0;
+        let modulator = Math.sin(pi2 * (freq * modRatio) * t) * modDepth;
+        y = Math.sin(pi2 * freq * t + modulator);
+      }
+      else {
+        // Sub-Harmonic (Fetter Doppel-Oszillator statt Rauschen)
+        let subFreq = freq * 0.5; // Eine Oktave tiefer
+        let phase1 = (t * freq) - Math.floor(t * freq);
+        let wave1 = 2.0 * phase1 - 1.0;
+        let wave2 = Math.sin(pi2 * subFreq * t);
+        y = 0.6 * wave1 + 0.4 * wave2;
+      }
 
+      // ==========================================
+      // 2. HÄRTERER ATTACK & ENVELOPE (rands[3] - rands[5])
+      // ==========================================
+      // Attack extrem kurz: 0.5ms bis 30ms für knackigen Anschlag
+      let attack = rands[3] * 0.029 + 0.0005;
+      let decay = rands[4] * 0.4 + 0.05;
+      let sustain = rands[5] * 0.6 + 0.1;
 
-      if (rands[j++] < 0.5) {
-          let attackTime = rands[j++] * 0.2 + 0.02;
-          if (t < attackTime) amplitude *= t / attackTime;
+      let env = 1.0;
+      if (t < attack) {
+        // Steile lineare Rampe für harten Transienten
+        env = t / attack;
+      } else if (t < attack + decay) {
+        let progress = (t - attack) / decay;
+        env = 1.0 - progress * (1.0 - sustain);
       } else {
-          if (t < 0.002) amplitude *= t / 0.002;
+        // Smooth Release
+        let releaseStart = duration - 0.1;
+        if (t > releaseStart && releaseStart > 0.0) {
+          env = sustain * Math.max(0.0, 1.0 - (t - releaseStart) / 0.1);
+        } else {
+          env = sustain;
+        }
       }
 
-      if (rands[j++] < 0.5) {
-          amplitude *= (Math.atan(-100.0 * (t - (duration - 0.05))) + (Math.PI / 2.0)) / Math.PI;
-      } else {
-          amplitude *= Math.exp(-t / (duration * 0.4));
+      // OPTIONAL: Transient-Transient-Punch (Kurzer Pitch-Klick in den ersten 5ms)
+      if (t < 0.005) {
+        let punch = (1.0 - (t / 0.005)) * 0.3;
+        env += punch;
       }
 
-      let w = rands[++j] * 0.75
-      let v = rands[++j]
-      amplitude *= w * 0.5 * Math.sin(0.025 * v * t * freq * 2 * Math.PI) + 0.5 + 1 - w
+      // ==========================================
+      // 3. EFFEKTE & MODULATION (rands[6] - rands[8])
+      // ==========================================
 
-      return y * amplitude
+      // A) Bitcrusher / Lo-Fi (rands[6])
+      if (rands[6] < 0.25) {
+        let steps = 4.0 + Math.floor(rands[6] * 20.0);
+        y = Math.floor(y * steps) / steps;
+      }
+
+      // B) Fast Pitch Drop / Percussive Thump (rands[7])
+      if (rands[7] < 0.3) {
+        let pitchDrop = Math.exp(-t * 50.0) * rands[7] * 2.0;
+        y = Math.sin(pi2 * freq * (1.0 + pitchDrop) * t);
+      }
+
+      // C) Tremolo / LFO (rands[8])
+      if (rands[8] < 0.4) {
+        let lfoRate = 4.0 + rands[8] * 12.0;
+        let lfoDepth = 0.3;
+        let lfo = 1.0 - lfoDepth + lfoDepth * (0.5 + 0.5 * Math.sin(pi2 * lfoRate * t));
+        env *= lfo;
+      }
+
+      return y * baseAmp * env;
     }).setOutput([audioCtx.sampleRate]);
 
-_instrumentGPU = gpu.createKernel(function(sampleRate, tone, rands, duration) {
-    let freq = 440.0 * Math.pow(2.0, tone / 12.0);
-    let t = this.thread.x / sampleRate;
 
-    // --- ANALOG WARMTH: Sub-Oszillator & Jitter ---
-    // Ein winziger Phasen-Jitter macht den digitalen Oszillator "lebendiger"
-    let jitter = (rands[50] - 0.5) * 0.0005;
-    let tJitter = t + jitter;
-    let subOsc = Math.sin(Math.PI * freq * tJitter); // Eine Oktave tiefer
 
-    // --- 1. WELLENFORM-WAHL (Bestehende Logik) ---
-    let n = Math.floor(2.0 * rands[0] * rands[0]) + 1;
-    let y = 2.0 * Math.PI * freq * tJitter;
-
-    for (let i = 0; i < 1; ++i) {
-        let k = rands[i + 1];
-
-        if (k < 0.12) {
-            y = Math.sin(y);
-        } else if (k < 0.24) {
-            y = (y % (2.0 * Math.PI)) > Math.PI ? 1.0 : -1.0;
-        } else if (k < 0.36) {
-            y = 2.0 * (y / (2.0 * Math.PI) - Math.floor(0.5 + y / (2.0 * Math.PI)));
-        } else if (k < 0.48) {
-            const lfoSpeed = rands[10] * 5.0 + 0.2;
-            const lfoCenter = rands[11] * 5.0 + 1.0;
-            const lfoDepth = rands[12] * 5.0;
-            const lfo = Math.sin(lfoSpeed * t * 6.283);
-            const dynExp = Math.abs(lfoCenter + lfo * lfoDepth) + 0.1;
-            const s = Math.sin(y);
-            y = (s >= 0 ? 1.0 : -1.0) * Math.pow(Math.abs(s), dynExp);
-        } else if (k < 0.60) {
-            y = Math.abs(4.0 * (y / (2.0 * Math.PI) - Math.floor(y / (2.0 * Math.PI) + 0.5))) - 1.0;
-        } else if (k < 0.72) {
-            let p = (y / (2.0 * Math.PI)) - Math.floor(y / (2.0 * Math.PI));
-            y = 8.0 * p * (1.0 - p) - 1.0;
-        } else if (k < 0.84) {
-            let steps = Math.floor(rands[15] * 12.0) + 4.0;
-            y = Math.floor(Math.sin(y) * steps) / steps;
-        } else {
-            y = Math.atan(Math.tan(y * 0.2));
-        }
-        y *= 1.5 * Math.PI;
-    }
-    y /= 2.0 * Math.PI;
-
-    // --- MORPHING & MIX ---
-    let originalSin = Math.sin(2.0 * Math.PI * freq * tJitter);
-    let m = t / (duration * 0.5);
-    if (m > 1.0) m = 1.0;
-    let warmMorph = m * m * (3.0 - 2.0 * m);
-
-    // Mix inklusive Sub-Bass für Fundament
-    let drySignal = (originalSin * 0.5) + (subOsc * 0.25) + (y * warmMorph * 0.35);
-
-    // --- SOFT-CLIPPING (Wärmere Sättigung als reines atan) ---
-    let drive = 1.4;
-    drySignal = (drySignal * drive) / (1.0 + Math.abs(drySignal * drive));
-
-    // --- 2. REVERB (Indizes ab 20) ---
-    let reverbSignal = 0.0;
-    let numTaps = Math.floor(rands[20] * 5.0) + 3.0;
-    let roomSize = rands[21] * 0.15 + 0.02;
-    let feedbackBase = rands[22] * 0.4 + 0.3;
-    let wetLevel = rands[23] * 0.4; // Etwas gezügelt für mehr Klarheit
-
-    for (let r = 1; r <= 8; r++) {
-        if (r > numTaps) break;
-        let tapDelay = (r * roomSize) * (0.8 + rands[30 + r] * 0.4);
-        let prevT = t - tapDelay;
-        if (prevT > 0.0) {
-            // Reverb-Echo mit leichter Dämpfung der Höhen
-            let echo = Math.sin(2.0 * Math.PI * freq * prevT);
-            reverbSignal += echo * Math.pow(feedbackBase, r);
-        }
-    }
-
-    // --- 3. DYNAMIK & FINAL TONE SHAPING ---
-    let amplitude = 1.0;
-    if (rands[40] < 0.5) {
-        let attackTime = rands[41] * 0.2 + 0.02;
-        if (t < attackTime) amplitude = t / attackTime;
-    } else {
-        if (t < 0.002) amplitude = t / 0.002;
-    }
-
-    if (rands[42] < 0.5) {
-        amplitude *= (Math.atan(-100.0 * (t - (duration - 0.05))) + (Math.PI / 2.0)) / Math.PI;
-    } else {
-        amplitude *= Math.exp(-t / (duration * 0.4));
-    }
-
-    // Kombiniertes Signal
-    let finalSignal = (drySignal * (1.0 - wetLevel)) + (reverbSignal * wetLevel);
-
-    // Low-Pass Filter Simulation (Wärme-Finish):
-    // Reduziert die Schärfe bei hoher Amplitude
-    let lowPass = 1.0 / (1.0 + 0.5 * Math.abs(finalSignal));
-
-    return finalSignal * amplitude * lowPass;
-}).setOutput([audioCtx.sampleRate]);
 
 
  	make()
@@ -643,7 +611,151 @@ _instrumentGPU = gpu.createKernel(function(sampleRate, tone, rands, duration) {
 		return normalize(xs)
 	}
 
+/*
+instrumentGPU = gpu.createKernel(function(sampleRate, tone, rands, duration) {
+  let freq = 440.0 * Math.pow(2.0, tone / 12.0);
+  let t = this.thread.x / sampleRate;
+  let j = 0
 
+  let n = Math.floor(2 * rands[j++])
+
+  let y = 0
+
+
+  let amplitude = 1.0;
+
+  if(n == 0) {
+    y = Math.sin(2 * Math.PI * freq * t)
+    amplitude *= 1.0
+  }
+   if(n == 1) {
+     y = Math.sign(Math.sin(2 * Math.PI * freq * t))
+     amplitude *= 0.5
+   }
+
+
+  if (rands[j++] < 0.5) {
+      let attackTime = rands[j++] * 0.2 + 0.02;
+      if (t < attackTime) amplitude *= t / attackTime;
+  } else {
+      if (t < 0.002) amplitude *= t / 0.002;
+  }
+
+  if (rands[j++] < 0.5) {
+      amplitude *= (Math.atan(-100.0 * (t - (duration - 0.05))) + (Math.PI / 2.0)) / Math.PI;
+  } else {
+      amplitude *= Math.exp(-t / (duration * 0.4));
+  }
+
+  let w = rands[++j] * 0.75
+  let v = rands[++j]
+  amplitude *= w * 0.5 * Math.sin(0.025 * v * t * freq * 2 * Math.PI) + 0.5 + 1 - w
+
+  return y * amplitude
+}).setOutput([audioCtx.sampleRate]);
+
+_instrumentGPU = gpu.createKernel(function(sampleRate, tone, rands, duration) {
+let freq = 440.0 * Math.pow(2.0, tone / 12.0);
+let t = this.thread.x / sampleRate;
+
+// --- ANALOG WARMTH: Sub-Oszillator & Jitter ---
+// Ein winziger Phasen-Jitter macht den digitalen Oszillator "lebendiger"
+let jitter = (rands[50] - 0.5) * 0.0005;
+let tJitter = t + jitter;
+let subOsc = Math.sin(Math.PI * freq * tJitter); // Eine Oktave tiefer
+
+// --- 1. WELLENFORM-WAHL (Bestehende Logik) ---
+let n = Math.floor(2.0 * rands[0] * rands[0]) + 1;
+let y = 2.0 * Math.PI * freq * tJitter;
+
+for (let i = 0; i < 1; ++i) {
+    let k = rands[i + 1];
+
+    if (k < 0.12) {
+        y = Math.sin(y);
+    } else if (k < 0.24) {
+        y = (y % (2.0 * Math.PI)) > Math.PI ? 1.0 : -1.0;
+    } else if (k < 0.36) {
+        y = 2.0 * (y / (2.0 * Math.PI) - Math.floor(0.5 + y / (2.0 * Math.PI)));
+    } else if (k < 0.48) {
+        const lfoSpeed = rands[10] * 5.0 + 0.2;
+        const lfoCenter = rands[11] * 5.0 + 1.0;
+        const lfoDepth = rands[12] * 5.0;
+        const lfo = Math.sin(lfoSpeed * t * 6.283);
+        const dynExp = Math.abs(lfoCenter + lfo * lfoDepth) + 0.1;
+        const s = Math.sin(y);
+        y = (s >= 0 ? 1.0 : -1.0) * Math.pow(Math.abs(s), dynExp);
+    } else if (k < 0.60) {
+        y = Math.abs(4.0 * (y / (2.0 * Math.PI) - Math.floor(y / (2.0 * Math.PI) + 0.5))) - 1.0;
+    } else if (k < 0.72) {
+        let p = (y / (2.0 * Math.PI)) - Math.floor(y / (2.0 * Math.PI));
+        y = 8.0 * p * (1.0 - p) - 1.0;
+    } else if (k < 0.84) {
+        let steps = Math.floor(rands[15] * 12.0) + 4.0;
+        y = Math.floor(Math.sin(y) * steps) / steps;
+    } else {
+        y = Math.atan(Math.tan(y * 0.2));
+    }
+    y *= 1.5 * Math.PI;
+}
+y /= 2.0 * Math.PI;
+
+// --- MORPHING & MIX ---
+let originalSin = Math.sin(2.0 * Math.PI * freq * tJitter);
+let m = t / (duration * 0.5);
+if (m > 1.0) m = 1.0;
+let warmMorph = m * m * (3.0 - 2.0 * m);
+
+// Mix inklusive Sub-Bass für Fundament
+let drySignal = (originalSin * 0.5) + (subOsc * 0.25) + (y * warmMorph * 0.35);
+
+// --- SOFT-CLIPPING (Wärmere Sättigung als reines atan) ---
+let drive = 1.4;
+drySignal = (drySignal * drive) / (1.0 + Math.abs(drySignal * drive));
+
+// --- 2. REVERB (Indizes ab 20) ---
+let reverbSignal = 0.0;
+let numTaps = Math.floor(rands[20] * 5.0) + 3.0;
+let roomSize = rands[21] * 0.15 + 0.02;
+let feedbackBase = rands[22] * 0.4 + 0.3;
+let wetLevel = rands[23] * 0.4; // Etwas gezügelt für mehr Klarheit
+
+for (let r = 1; r <= 8; r++) {
+    if (r > numTaps) break;
+    let tapDelay = (r * roomSize) * (0.8 + rands[30 + r] * 0.4);
+    let prevT = t - tapDelay;
+    if (prevT > 0.0) {
+        // Reverb-Echo mit leichter Dämpfung der Höhen
+        let echo = Math.sin(2.0 * Math.PI * freq * prevT);
+        reverbSignal += echo * Math.pow(feedbackBase, r);
+    }
+}
+
+// --- 3. DYNAMIK & FINAL TONE SHAPING ---
+let amplitude = 1.0;
+if (rands[40] < 0.5) {
+    let attackTime = rands[41] * 0.2 + 0.02;
+    if (t < attackTime) amplitude = t / attackTime;
+} else {
+    if (t < 0.002) amplitude = t / 0.002;
+}
+
+if (rands[42] < 0.5) {
+    amplitude *= (Math.atan(-100.0 * (t - (duration - 0.05))) + (Math.PI / 2.0)) / Math.PI;
+} else {
+    amplitude *= Math.exp(-t / (duration * 0.4));
+}
+
+// Kombiniertes Signal
+let finalSignal = (drySignal * (1.0 - wetLevel)) + (reverbSignal * wetLevel);
+
+// Low-Pass Filter Simulation (Wärme-Finish):
+// Reduziert die Schärfe bei hoher Amplitude
+let lowPass = 1.0 / (1.0 + 0.5 * Math.abs(finalSignal));
+
+return finalSignal * amplitude * lowPass;
+}).setOutput([audioCtx.sampleRate]);
+*/
 
 </script>
 
