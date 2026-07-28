@@ -384,7 +384,7 @@ let waves = [instrument]
 
         //Begleitung
 
-    	for(let i = 0;i < 4;++i) {
+    	for(let i = 0;i < 5;++i) {
        ins = new Instrument(-12,"cv1",wave,selectrandom(waves));
 
 	        ms.push(new Melody(2,ins));
@@ -392,7 +392,7 @@ let waves = [instrument]
 
 
         //Sound
-    		for( let i = 0; i < 4;++i) {
+    		for( let i = 0; i < 5;++i) {
         ins = new Instrument(0,"cv11",wave,selectrandom(waves));
 
 	        ms.push(new Melody(1,ins));
@@ -400,8 +400,8 @@ let waves = [instrument]
 
 
         //Bongos
-    			for(let i = 0;i < 4;++i) {
-        ins = new Instrument(0,"cv111",wave,selectrandom(waves));
+    			for(let i = 0;i < 5;++i) {
+        ins = new Instrument(0,"cv111",wave,percussion);
 
 	        ms.push(new Melody(1,ins));
         }
@@ -424,7 +424,7 @@ let waves = [instrument]
 
 				for(let k = 0;k < cnt;++k) {
 					if(m.i < frameCount) {
-						if(Math.random() < 0.5) m.play(myArrayBuffer,m.i);
+						if(Math.random() < 0.25) m.play(myArrayBuffer,m.i);
 						m.i += Math.round(2 * speed * m.stepSize * audioCtx.sampleRate / cnt)
 					} else
 						m.i = frameCount;
@@ -439,13 +439,8 @@ let waves = [instrument]
 }
 
 var speed;
-let sineGPU
-	let pianoGPU
-	let sawtoothGPU
-	let rectangleGPU
-	let sineOfSineGPU
 	let instrumentGPU
-
+	let percussionGPU
 
 async function sound() {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)()
@@ -560,7 +555,136 @@ async function sound() {
     }).setOutput([audioCtx.sampleRate]);
 
 
+    percussionGPU = gpu.createKernel(function(sampleRate, tone, rands, duration) {
+      let freq = 440.0 * Math.pow(2.0, tone / 12.0);
+      let t = this.thread.x / sampleRate;
+      let pi2 = 2.0 * Math.PI;
 
+      // ==========================================
+      // 0. PSEUDO-RANDOM NOISE GENERATOR (für GPU)
+      // ==========================================
+      // Generiert deterministisches White Noise basierend auf der Sample-Position
+      let noiseSeed = Math.sin(this.thread.x * 12.9898 + 78.233) * 43758.5453;
+      let whiteNoise = (noiseSeed - Math.floor(noiseSeed)) * 2.0 - 1.0;
+
+      // ==========================================
+      // 1. PERCUSSION TYPE SELECTOR (rands[0])
+      // ==========================================
+      // 0: Kick, 1: Snare, 2: Hi-Hat, 3: Tom, 4: Clap
+      let percType = Math.floor(5.0 * rands[0]);
+      let y = 0.0;
+      let env = 0.0;
+
+      // ------------------------------------------
+      // TYP 0: KICK DRUM
+      // ------------------------------------------
+      if (percType == 0) {
+        let kickBaseFreq = 45.0 + rands[1] * 25.0; // Deep Sub (45-70 Hz)
+        let pitchEnv = Math.exp(-t * (30.0 + rands[2] * 40.0)); // Steiler Pitch-Drop
+        let currentFreq = kickBaseFreq + pitchEnv * (200.0 + rands[3] * 300.0);
+
+        // Sinus-Basis für sauberen Druck
+        y = Math.sin(pi2 * currentFreq * t);
+
+        // Transient Click am Start (erste 3ms)
+        if (t < 0.003) {
+          y += whiteNoise * (1.0 - t / 0.003) * 0.5;
+        }
+
+        // Exponentieller Amplitude Decay
+        let decay = 0.15 + rands[4] * 0.35;
+        env = Math.exp(-t * (1.0 / decay) * 6.0);
+      }
+
+      // ------------------------------------------
+      // TYP 1: SNARE DRUM
+      // ------------------------------------------
+      else if (percType == 1) {
+        // A) Drum-Körper (Tonaler Body)
+        let bodyFreq = 150.0 + rands[1] * 100.0;
+        let bodyPitchEnv = Math.exp(-t * 40.0);
+        let bodyWave = Math.sin(pi2 * (bodyFreq + bodyPitchEnv * 150.0) * t);
+        let bodyEnv = Math.exp(-t * 20.0);
+
+        // B) Snare-Teppich (Rauschen)
+        let noiseEnv = Math.exp(-t * (10.0 + rands[2] * 20.0));
+
+        // Mischung aus Body und Rauschen
+        let noiseRatio = 0.4 + rands[3] * 0.4;
+        y = (1.0 - noiseRatio) * (bodyWave * bodyEnv) + noiseRatio * (whiteNoise * noiseEnv);
+        env = 1.0; // Envelope ist bereits im Waveform-Mixing integriert
+      }
+
+      // ------------------------------------------
+      // TYP 2: HI-HAT / CYMBAL
+      // ------------------------------------------
+      else if (percType == 2) {
+        // Metallic Multi-Oscillator Noise Emulation
+        let f1 = 3000.0 + rands[1] * 1000.0;
+        let f2 = 5400.0 + rands[2] * 1000.0;
+        let metallicWave = Math.sin(pi2 * f1 * t) + Math.sin(pi2 * f2 * t);
+
+        // Kombination aus Metall-Frequenzen und Rauschen
+        let rawHat = 0.6 * whiteNoise + 0.4 * metallicWave;
+
+        // Kurzes Decay für Closed Hat, längeres für Open Hat
+        let isClosed = rands[3] < 0.6;
+        let decay = isClosed ? (0.02 + rands[4] * 0.05) : (0.15 + rands[4] * 0.3);
+
+        y = rawHat;
+        env = Math.exp(-t * (1.0 / decay) * 8.0);
+      }
+
+      // ------------------------------------------
+      // TYP 3: TOM / PERC
+      // ------------------------------------------
+      else if (percType == 3) {
+        let tomBaseFreq = freq * 0.5; // Verwendet die übergebene Tonhöhe
+        let pitchEnv = Math.exp(-t * (15.0 + rands[1] * 20.0));
+        let currentFreq = tomBaseFreq + pitchEnv * tomBaseFreq * 1.5;
+
+        // Leicht verzerrte Sinuswelle für resonanten Klang
+        let raw = Math.sin(pi2 * currentFreq * t);
+        y = Math.tanh(raw * 1.5);
+
+        let decay = 0.1 + rands[2] * 0.3;
+        env = Math.exp(-t * (1.0 / decay) * 5.0);
+      }
+
+      // ------------------------------------------
+      // TYP 4: HAND CLAP
+      // ------------------------------------------
+      else {
+        // Claps bestehen aus mehreren kurzen Rausch-Impulsen kurz hintereinander
+        let clapEnv = 0.0;
+
+        // 3 Vor-Impulse (Pre-Claps) innerhalb der ersten 30ms
+        if (t < 0.010) {
+          clapEnv = Math.exp(-t * 400.0);
+        } else if (t >= 0.010 && t < 0.020) {
+          clapEnv = Math.exp(-(t - 0.010) * 400.0);
+        } else if (t >= 0.020 && t < 0.030) {
+          clapEnv = Math.exp(-(t - 0.020) * 400.0);
+        } else {
+          // Haupt-Decay
+          clapEnv = Math.exp(-(t - 0.030) * 25.0);
+        }
+
+        y = whiteNoise;
+        env = clapEnv;
+      }
+
+      // ==========================================
+      // 2. ABSCHLUSS & HARD CLIPPER (Schutz vor Distortion)
+      // ==========================================
+      let output = y * env;
+
+      // Soft-Clipping gegen Übersteuerung
+      if (output > 1.0) output = 1.0;
+      if (output < -1.0) output = -1.0;
+
+      return output;
+    }).setOutput([audioCtx.sampleRate]);
 
 
  	make()
@@ -609,6 +733,13 @@ async function sound() {
 	function instrument(sampleRate, tone, rands, duration) {
 		let xs = instrumentGPU(sampleRate, tone, rands, duration)
 		return normalize(xs)
+	}
+
+	function percussion(sampleRate, tone, rands, duration) {
+		let xs = percussionGPU(sampleRate, tone, rands, duration)
+		xs = normalize(xs)
+		for(let i = 0;i < xs.length;++i) xs[i] *= 5
+		return xs
 	}
 
 /*
