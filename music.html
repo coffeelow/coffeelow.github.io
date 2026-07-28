@@ -530,13 +530,15 @@ async function sound() {
 
 
 
-
     percussionGPU = gpu.createKernel(function(sampleRate, tone, rands, duration) {
-      let freq = 440.0 * Math.pow(2.0, ((tone + 36) % 12) / 12.0);
+      // Doppelte Ziel-Dauer
+      let totalDuration = duration * 2.0;
       let t = this.thread.x / sampleRate;
       let pi2 = 2.0 * Math.PI;
 
-      if (t > duration) return 0.0;
+      if (t > totalDuration) return 0.0;
+
+      let freq = 440.0 * Math.pow(2.0, ((tone + 36) % 12) / 12.0);
 
       // ==========================================
       // 0. NOISE & RANDOM SEEDS
@@ -547,7 +549,8 @@ async function sound() {
       let noiseSeed2 = Math.cos(this.thread.x * 4.898 + 23.23) * 23421.1231;
       let pinkNoise = (noiseSeed2 - Math.floor(noiseSeed2)) * 2.0 - 1.0;
 
-      let decaySpeed = (3.0 + rands[1] * 5.0) / Math.max(0.01, duration);
+      // Skalierter Decay: Verhindert, dass Drums matschig klingen
+      let decaySpeed = (5.0 + rands[1] * 7.0) / Math.max(0.01, totalDuration);
 
       // ==========================================
       // 1. ORGANIC OSZILLATOREN
@@ -570,45 +573,45 @@ async function sound() {
       let env = 0.0;
 
       // ------------------------------------------
-      // TYP 0: KICK / 808 SUB IMPACT (Sauberer Pitch-Sweep)
+      // TYP 0: KICK / LONG 808 SUB IMPACT
       // ------------------------------------------
       if (percType == 0) {
-        let kickBaseFreq = 35.0 + rands[5] * 45.0;
-        let pitchEnv = Math.exp(-t * (25.0 + rands[7] * 25.0));
-        let currentFreq = kickBaseFreq + pitchEnv * (100.0 + rands[6] * 150.0);
+        let kickBaseFreq = 30.0 + rands[5] * 40.0;
+        let pitchEnv = Math.exp(-t * (18.0 + rands[7] * 20.0));
+        let currentFreq = kickBaseFreq + pitchEnv * (120.0 + rands[6] * 140.0);
 
-        // Stabilisierte Phasenberechnung ohne zeitabhängiges Schmieren
         y = Math.sin(pi2 * currentFreq * t);
 
         if (t < 0.005) {
           y += (pinkNoise * 0.2 + wave1 * 0.2) * (1.0 - t / 0.005);
         }
-        env = Math.exp(-t * decaySpeed);
+        // Nutzen der längeren Duration für epischen 808-Sub-Bass Tail
+        env = Math.exp(-t * (decaySpeed * 0.6));
       }
 
       // ------------------------------------------
-      // TYP 1: ORGANIC SNARE / RIM
+      // TYP 1: ORGANIC SNARE / REVERB TAIL
       // ------------------------------------------
       else if (percType == 1) {
-        let pitchEnv = Math.exp(-t * 40.0);
-        let bodyFreq = (120.0 + rands[6] * 120.0) + pitchEnv * 60.0;
+        let pitchEnv = Math.exp(-t * 35.0);
+        let bodyFreq = (110.0 + rands[6] * 110.0) + pitchEnv * 50.0;
 
         let body = Math.sin(pi2 * bodyFreq * t) + 0.15 * wave1;
-        let noiseRatio = 0.3 + rands[7] * 0.4;
+        let noiseRatio = 0.35 + rands[7] * 0.4;
 
-        let bodyEnv = Math.exp(-t * decaySpeed * 2.5);
-        let noiseEnv = Math.exp(-t * decaySpeed * (1.2 + rands[8]));
+        let bodyEnv = Math.exp(-t * decaySpeed * 2.2);
+        let noiseEnv = Math.exp(-t * decaySpeed * (0.8 + rands[8] * 0.8));
 
         y = (1.0 - noiseRatio) * body * bodyEnv + noiseRatio * pinkNoise * noiseEnv;
         env = 1.0;
       }
 
       // ------------------------------------------
-      // TYP 2: NATURAL HI-HAT / SHAKER
+      // TYP 2: NATURAL HI-HAT / LONG SHAKER
       // ------------------------------------------
       else if (percType == 2) {
         let isShaker = rands[5] > 0.5;
-        let attack = isShaker ? (0.005 + rands[6] * 0.015) : 0.0005;
+        let attack = isShaker ? (0.008 + rands[6] * 0.025) : 0.0005;
 
         let noiseMix = 0.3 * whiteNoise + 0.7 * pinkNoise;
         y = noiseMix;
@@ -616,41 +619,41 @@ async function sound() {
         if (t < attack) {
           env = t / attack;
         } else {
-          env = Math.exp(-(t - attack) * decaySpeed * (2.0 + rands[8] * 2.0));
+          env = Math.exp(-(t - attack) * decaySpeed * (1.5 + rands[8] * 1.5));
         }
       }
 
       // ------------------------------------------
-      // TYP 3: TOMS / CONGAS / BONGO
+      // TYP 3: TOMS / DEEP CONGAS
       // ------------------------------------------
       else if (percType == 3) {
-        let resonantFreq = 80.0 + rands[5] * 160.0;
-        let pitchBend = Math.exp(-t * 30.0) * (rands[6] * 0.3);
+        let resonantFreq = 70.0 + rands[5] * 140.0;
+        let pitchBend = Math.exp(-t * 25.0) * (rands[6] * 0.3);
         let currentFreq = resonantFreq * (1.0 + pitchBend);
 
         y = Math.sin(pi2 * currentFreq * t) + 0.1 * wave1;
-        env = Math.exp(-t * decaySpeed * 1.2);
+        env = Math.exp(-t * decaySpeed * 1.1);
       }
 
       // ------------------------------------------
-      // TYP 4: CLAPS / HAND PERCUSSION
+      // TYP 4: CLAPS / LARGE ROOM HAND PERCUSSION
       // ------------------------------------------
       else if (percType == 4) {
         let tapCount = 2 + Math.floor(rands[5] * 3);
-        let tapSpacing = 0.008 + rands[6] * 0.01;
+        let tapSpacing = 0.01 + rands[6] * 0.012;
         let tapEnv = 0.0;
 
         for (let i = 0; i < 4; i++) {
           if (i < tapCount) {
             let tapTime = i * tapSpacing;
             if (t >= tapTime && t < tapTime + 0.015) {
-              tapEnv += Math.exp(-(t - tapTime) * 250.0);
+              tapEnv += Math.exp(-(t - tapTime) * 220.0);
             }
           }
         }
         let tailTime = tapCount * tapSpacing;
         if (t >= tailTime) {
-          tapEnv += Math.exp(-(t - tailTime) * decaySpeed * 2.0);
+          tapEnv += Math.exp(-(t - tailTime) * decaySpeed * 1.5);
         }
 
         y = 0.85 * pinkNoise + 0.15 * wave1;
@@ -661,62 +664,62 @@ async function sound() {
       // TYP 5: WOODBLOCK / CLAVES
       // ------------------------------------------
       else if (percType == 5) {
-        let f1 = 600.0 + rands[5] * 600.0;
-        let f2 = f1 * 1.5; // Stabile Quinte statt zufälliger unharmonischer Intervalle
-        let transient = Math.exp(-t * 800.0);
+        let f1 = 500.0 + rands[5] * 500.0;
+        let f2 = f1 * 1.5;
+        let transient = Math.exp(-t * 700.0);
 
         y = (0.7 * Math.sin(pi2 * f1 * t) + 0.3 * Math.sin(pi2 * f2 * t)) + transient * 0.3;
-        env = Math.exp(-t * decaySpeed * 3.5);
+        env = Math.exp(-t * decaySpeed * 3.0);
       }
 
       // ------------------------------------------
-      // TYP 6: TABLA / DJEMBE (Geringer, sauberer Pitch-Drop statt Sinus-Swoop)
+      // TYP 6: TABLA / DJEMBE
       // ------------------------------------------
       else if (percType == 6) {
-        let pitchEnv = Math.exp(-t * 18.0);
-        let f = (90.0 + rands[5] * 80.0) + pitchEnv * (50.0 + rands[6] * 80.0);
+        let pitchEnv = Math.exp(-t * 15.0);
+        let f = (80.0 + rands[5] * 70.0) + pitchEnv * (40.0 + rands[6] * 70.0);
 
         y = Math.sin(pi2 * f * t) + 0.25 * Math.sin(pi2 * f * 2.0 * t) + 0.05 * pinkNoise;
-        env = Math.exp(-t * decaySpeed * 1.2);
+        env = Math.exp(-t * decaySpeed * 1.0);
       }
 
       // ------------------------------------------
-      // TYP 7: GUIRO / RATSCHE
+      // TYP 7: LONG GUIRO / RATSCHE
       // ------------------------------------------
       else if (percType == 7) {
-        let strikeRate = 40.0 + rands[5] * 40.0;
+        let strikeRate = 35.0 + rands[5] * 35.0;
         let ripple = 0.5 + 0.5 * Math.sin(pi2 * strikeRate * t);
-        let body = Math.sin(pi2 * (400.0 + rands[6] * 200.0) * t);
+        let body = Math.sin(pi2 * (350.0 + rands[6] * 200.0) * t);
 
         y = ripple * (0.6 * body + 0.4 * pinkNoise);
-        env = Math.exp(-t * decaySpeed * 0.9);
+        env = Math.exp(-t * decaySpeed * 0.8);
       }
 
       // ------------------------------------------
       // TYP 8: CABASA / KÖRNIGES RAUSCHEN
       // ------------------------------------------
       else if (percType == 8) {
-        let grainFreq = 180.0 + rands[5] * 200.0;
+        let grainFreq = 150.0 + rands[5] * 180.0;
         let grain = 0.5 + 0.5 * Math.sin(pi2 * grainFreq * t);
-        let attack = 0.003;
+        let attack = 0.004;
 
         y = pinkNoise * grain;
         if (t < attack) {
           env = t / attack;
         } else {
-          env = Math.exp(-(t - attack) * decaySpeed * 3.0);
+          env = Math.exp(-(t - attack) * decaySpeed * 2.2);
         }
       }
 
       // ------------------------------------------
-      // TYP 9: SUB DROP / BODY SNAP
+      // TYP 9: CINEMATIC SUB DROP
       // ------------------------------------------
       else {
-        let f = (45.0 + rands[5] * 35.0) * Math.exp(-t * 8.0);
+        let f = (40.0 + rands[5] * 30.0) * Math.exp(-t * 5.0);
         let snap = t < 0.002 ? (1.0 - t / 0.002) * pinkNoise : 0.0;
 
         y = Math.sin(pi2 * f * t) * 0.8 + snap * 0.4;
-        env = Math.exp(-t * decaySpeed * 0.85);
+        env = Math.exp(-t * decaySpeed * 0.5); // Langer Ausklang für tiefe Sub Drops
       }
 
       let rawAudio = y * env;
@@ -728,11 +731,11 @@ async function sound() {
       let drivenAudio = Math.tanh(rawAudio * drive);
 
       // ==========================================
-      // 4. OUT-FADE AN DER DURATION-GRENZE
+      // 4. OUT-FADE AN DER DOPPELTEN DURATION-GRENZE
       // ==========================================
-      let fadeOutStart = duration - 0.02;
+      let fadeOutStart = totalDuration - 0.03;
       if (t > fadeOutStart) {
-        let fade = Math.max(0.0, 1.0 - (t - fadeOutStart) / 0.02);
+        let fade = Math.max(0.0, 1.0 - (t - fadeOutStart) / 0.03);
         drivenAudio *= fade;
       }
 
@@ -741,6 +744,8 @@ async function sound() {
 
       return drivenAudio;
     }).setOutput([audioCtx.sampleRate]);
+
+
 
 
 
