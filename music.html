@@ -455,103 +455,77 @@ async function sound() {
       let pi2 = 2.0 * Math.PI;
 
       // ==========================================
-      // 1. ZUFÄLLIGES INSTRUMENT (rands[0] - rands[2])
+      // 1. HARMONISCHE, GEISTERFREIE INSTRUMENTE
       // ==========================================
-      // 0: Sinus, 1: Rechteck, 2: Sägezahn, 3: Dreieck, 4: FM Synth, 5: Sub-Harmonic/Dual-Tone
-      let instType = Math.floor(6.0 * rands[0]);
+      let instType = Math.floor(5.0 * rands[0]); // Auf 5 absolut stabile Typen reduziert
       let y = 0.0;
-      let baseAmp = 1.0;
+
+      // Grundphase sauber ohne Zeit-Multiplikations-Glitches
+      let phase = (t * freq) - Math.floor(t * freq);
 
       if (instType == 0) {
-        // Basic Sinus (Klassisch & Punchy)
-        y = Math.sin(pi2 * freq * t);
+        // Pure Sinus (Glasklar)
+        y = Math.sin(pi2 * phase);
       }
       else if (instType == 1) {
-        // Rechteckwelle (8-Bit / Hard Lead)
-        y = Math.sin(pi2 * freq * t) >= 0.0 ? 0.7 : -0.7;
+        // Sanfter Soft-Square (Keine atonale Obertöne)
+        y = Math.sin(pi2 * phase) >= 0.0 ? 0.6 : -0.6;
       }
       else if (instType == 2) {
-        // Sägezahnwelle (Scharf & Durchdringend)
-        let phase = (t * freq) - Math.floor(t * freq);
+        // Sägezahn
         y = 2.0 * phase - 1.0;
       }
       else if (instType == 3) {
-        // Dreieckwelle (Knackiger Bass)
-        let phase = (t * freq) - Math.floor(t * freq);
+        // Dreieck
         y = 2.0 * Math.abs(2.0 * phase - 1.0) - 1.0;
       }
-      else if (instType == 4) {
-        // FM-Synthese (Metallisch / Crisp)
-        let modRatio = Math.floor(1.0 + rands[1] * 5.0);
-        let modDepth = rands[2] * 8.0;
-        let modulator = Math.sin(pi2 * (freq * modRatio) * t) * modDepth;
-        y = Math.sin(pi2 * freq * t + modulator);
-      }
       else {
-        // Sub-Harmonic (Fetter Doppel-Oszillator statt Rauschen)
-        let subFreq = freq * 0.5; // Eine Oktave tiefer
-        let phase1 = (t * freq) - Math.floor(t * freq);
-        let wave1 = 2.0 * phase1 - 1.0;
-        let wave2 = Math.sin(pi2 * subFreq * t);
-        y = 0.6 * wave1 + 0.4 * wave2;
+        // Additive Harmonie (Oktave + Quinte) statt chaotischer FM-Synthese
+        let wave1 = Math.sin(pi2 * phase);
+        let wave2 = Math.sin(pi2 * ((t * freq * 2.0) - Math.floor(t * freq * 2.0))); // Oktave
+        y = 0.7 * wave1 + 0.3 * wave2;
       }
 
       // ==========================================
-      // 2. HÄRTERER ATTACK & ENVELOPE (rands[3] - rands[5])
+      // 2. STABILE ENVELOPE (Keine Knackser / Atonalen Klicks)
       // ==========================================
-      // Attack extrem kurz: 0.5ms bis 30ms für knackigen Anschlag
-      let attack = rands[3] * 0.029 + 0.0005;
-      let decay = rands[4] * 0.4 + 0.05;
-      let sustain = rands[5] * 0.6 + 0.1;
+      let attack = rands[3] * 0.02 + 0.002; // Sauberer Attack
+      let decay = rands[4] * 0.3 + 0.05;
+      let sustain = rands[5] * 0.5 + 0.3;
 
       let env = 1.0;
       if (t < attack) {
-        // Steile lineare Rampe für harten Transienten
         env = t / attack;
       } else if (t < attack + decay) {
         let progress = (t - attack) / decay;
         env = 1.0 - progress * (1.0 - sustain);
       } else {
-        // Smooth Release
-        let releaseStart = duration - 0.1;
+        let releaseStart = duration - 0.05;
         if (t > releaseStart && releaseStart > 0.0) {
-          env = sustain * Math.max(0.0, 1.0 - (t - releaseStart) / 0.1);
+          env = sustain * Math.max(0.0, 1.0 - (t - releaseStart) / 0.05);
         } else {
           env = sustain;
         }
       }
 
-      // OPTIONAL: Transient-Transient-Punch (Kurzer Pitch-Klick in den ersten 5ms)
-      if (t < 0.005) {
-        let punch = (1.0 - (t / 0.005)) * 0.3;
-        env += punch;
-      }
-
       // ==========================================
-      // 3. EFFEKTE & MODULATION (rands[6] - rands[8])
+      // 3. GEISTERFREIE MODULATION
       // ==========================================
 
-      // A) Bitcrusher / Lo-Fi (rands[6])
-      if (rands[6] < 0.25) {
-        let steps = 4.0 + Math.floor(rands[6] * 20.0);
-        y = Math.floor(y * steps) / steps;
-      }
-
-      // B) Fast Pitch Drop / Percussive Thump (rands[7])
-      if (rands[7] < 0.3) {
-        let pitchDrop = Math.exp(-t * 50.0) * rands[7] * 2.0;
-        y = Math.sin(pi2 * freq * (1.0 + pitchDrop) * t);
-      }
-
-      // C) Tremolo / LFO (rands[8])
+      // Tremolo (Nur Lautstärke-Schwebung, NULL Pitch-Veränderung)
       if (rands[8] < 0.4) {
-        let lfoRate = 4.0 + rands[8] * 12.0;
-        let lfoDepth = 0.3;
-        let lfo = 1.0 - lfoDepth + lfoDepth * (0.5 + 0.5 * Math.sin(pi2 * lfoRate * t));
+        let lfoRate = 3.0 + rands[8] * 6.0;
+        let lfo = 0.75 + 0.25 * Math.sin(pi2 * lfoRate * t);
         env *= lfo;
       }
 
-      return y * baseAmp * env;
+      let finalAudio = y * env;
+
+      // Schutz vor Clipping
+      if (finalAudio > 1.0) finalAudio = 1.0;
+      if (finalAudio < -1.0) finalAudio = -1.0;
+
+      return finalAudio;
     }).setOutput([audioCtx.sampleRate]);
 
 
