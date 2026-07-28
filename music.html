@@ -384,7 +384,7 @@ let waves = [instrument]
 
         //Begleitung
 
-    	for(let i = 0;i < 5;++i) {
+    	for(let i = 0;i < 10;++i) {
        ins = new Instrument(-12,"cv1",wave,selectrandom(waves));
 
 	        ms.push(new Melody(2,ins));
@@ -392,7 +392,7 @@ let waves = [instrument]
 
 
         //Sound
-    		for( let i = 0; i < 5;++i) {
+    		for( let i = 0; i < 10;++i) {
         ins = new Instrument(0,"cv11",wave,selectrandom(waves));
 
 	        ms.push(new Melody(1,ins));
@@ -400,7 +400,7 @@ let waves = [instrument]
 
 
         //Bongos
-    			for(let i = 0;i < 5;++i) {
+    			for(let i = 0;i < 10;++i) {
         ins = new Instrument(0,"cv111",wave,percussion);
 
 	        ms.push(new Melody(1,ins));
@@ -738,7 +738,7 @@ async function sound() {
 	function percussion(sampleRate, tone, rands, duration) {
 		let xs = percussionGPU(sampleRate, tone, rands, duration)
 		xs = normalize(xs)
-		for(let i = 0;i < xs.length;++i) xs[i] *= 5
+		for(let i = 0;i < xs.length;++i) xs[i] *= 10
 		return xs
 	}
 
