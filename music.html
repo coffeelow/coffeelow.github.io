@@ -212,7 +212,7 @@ constructor(tone,cvName,waveFunction ,waveGPU) {
 
 //per tone
 render(buffer,offset,tone,duration,vol) {
-	const n = rand(1024);
+	const n = rand(128);
 	const channels = 2;
 	for(var channel = 0; channel < channels; channel++) {
 	var nowBuffering = buffer.getChannelData(channel);
@@ -555,15 +555,18 @@ async function sound() {
     }).setOutput([audioCtx.sampleRate]);
 
 
+
+
+
     percussionGPU = gpu.createKernel(function(sampleRate, tone, rands, duration) {
-      let freq = 440.0 * Math.pow(2.0, tone / 12.0);
+      let freq = 440.0 * Math.pow(2.0, ((tone + 36) % 12) / 12.0);
       let t = this.thread.x / sampleRate;
       let pi2 = 2.0 * Math.PI;
 
       if (t > duration) return 0.0;
 
       // ==========================================
-      // 0. PSEUDO-RANDOM NOISE GENERATORS
+      // 0. NOISE & RANDOM SEEDS
       // ==========================================
       let noiseSeed1 = Math.sin(this.thread.x * 12.9898 + 78.233) * 43758.5453;
       let whiteNoise = (noiseSeed1 - Math.floor(noiseSeed1)) * 2.0 - 1.0;
@@ -571,43 +574,31 @@ async function sound() {
       let noiseSeed2 = Math.cos(this.thread.x * 4.898 + 23.23) * 23421.1231;
       let pinkNoise = (noiseSeed2 - Math.floor(noiseSeed2)) * 2.0 - 1.0;
 
-      // Skalierungsfaktor für Ausklingzeit
       let decaySpeed = (3.0 + rands[1] * 5.0) / Math.max(0.01, duration);
 
       // ==========================================
-      // 1. DYNAMISCHER MULTI-WAVESHAPER
+      // 1. ORGANIC OSZILLATOREN (Keine harten Kanten/Rechtecke)
       // ==========================================
-      // Erzeugt flexible Grundwellenformen aus einem kontinuierlichen Parameter (waveType)
-      let waveType = rands[2] * 4.0; // 0..1: Sinus, 1..2: Dreieck, 2..3: Sägezahn, 3..4: Square/Pulse
-      let fMult1 = 0.5 + rands[3] * 3.5; // Oszillator 1 Frequenz-Multiplikator
-      let fMult2 = 1.0 + rands[4] * 6.0; // Oszillator 2 Frequenz-Multiplikator (für Ringmod/Metall)
-
-      // Sub-Funktion für Wellenform-Generierung
+      let fMult1 = 0.5 + rands[3] * 3.5;
       let phase1 = (t * freq * fMult1) - Math.floor(t * freq * fMult1);
-      let phase2 = (t * freq * fMult2) - Math.floor(t * freq * fMult2);
 
+      // Weiche Wellenformen: Sinus & Dreieck (kein Aliasing)
       let wave1 = 0.0;
-      if (waveType < 1.0) {
+      if (rands[2] < 0.5) {
         wave1 = Math.sin(pi2 * freq * fMult1 * t);
-      } else if (waveType < 2.0) {
-        wave1 = 2.0 * Math.abs(2.0 * phase1 - 1.0) - 1.0; // Dreieck
-      } else if (waveType < 3.0) {
-        wave1 = 2.0 * phase1 - 1.0; // Sägezahn
       } else {
-        wave1 = Math.sin(pi2 * freq * fMult1 * t) >= 0.0 ? 0.8 : -0.8; // Rechteck
+        wave1 = 2.0 * Math.abs(2.0 * phase1 - 1.0) - 1.0; // Dreieckswelle
       }
 
-      let wave2 = Math.sin(pi2 * freq * fMult2 * t);
-
       // ==========================================
-      // 2. RANDOMISIERTE PERCUSSION-KATEGORIEN
+      // 2. PERCUSSION KATEGORIEN
       // ==========================================
       let percType = Math.floor(6.0 * rands[0]);
       let y = 0.0;
       let env = 0.0;
 
       // ------------------------------------------
-      // TYP 0: KICKS / LOW IMPACTS / TIGHT PUNCH
+      // TYP 0: KICKS / SUB IMPACTS
       // ------------------------------------------
       if (percType == 0) {
         let kickBaseFreq = 35.0 + rands[5] * 45.0;
@@ -617,44 +608,40 @@ async function sound() {
         let currentFreq = kickBaseFreq + Math.exp(-t * pitchDropSpeed) * pitchDropAmount;
         y = Math.sin(pi2 * currentFreq * t);
 
-        // Klick/Punch am Start
         if (t < 0.005) {
-          y += (whiteNoise * 0.4 + wave1 * 0.4) * (1.0 - t / 0.005);
+          y += (whiteNoise * 0.2 + wave1 * 0.2) * (1.0 - t / 0.005);
         }
         env = Math.exp(-t * decaySpeed);
       }
 
       // ------------------------------------------
-      // TYP 1: SNARES / RIMSHOTS / WOODBLOCKS
+      // TYP 1: SNARES / WOODEN RIMS
       // ------------------------------------------
       else if (percType == 1) {
         let pitchEnv = Math.exp(-t * (20.0 + rands[5] * 30.0));
         let bodyFreq = (100.0 + rands[6] * 200.0) + pitchEnv * 100.0;
 
-        let body = Math.sin(pi2 * bodyFreq * t) + 0.3 * wave1;
-        let noiseRatio = rands[7]; // Von reinem Woodblock (0.0) bis rauschiger Snare (1.0)
+        let body = Math.sin(pi2 * bodyFreq * t) + 0.2 * wave1;
+        let noiseRatio = 0.2 + rands[7] * 0.5;
 
         let bodyEnv = Math.exp(-t * decaySpeed * 2.0);
         let noiseEnv = Math.exp(-t * decaySpeed * (1.0 + rands[8]));
 
-        y = (1.0 - noiseRatio) * body * bodyEnv + noiseRatio * whiteNoise * noiseEnv;
+        y = (1.0 - noiseRatio) * body * bodyEnv + noiseRatio * pinkNoise * noiseEnv;
         env = 1.0;
       }
 
       // ------------------------------------------
-      // TYP 2: HI-HATS / SHAKER / MARACAS
+      // TYP 2: HI-HATS / SHAKER (Reines organisches Rauschen)
       // ------------------------------------------
       else if (percType == 2) {
-        // Shaker vs Hat: Shaker nutzt sanfteren Attack, Hat sehr steilen Attack
         let isShaker = rands[5] > 0.5;
         let attack = isShaker ? (0.005 + rands[6] * 0.02) : 0.0005;
 
-        let noiseMix = 0.5 * whiteNoise + 0.5 * pinkNoise;
-        let metallicMod = Math.sin(pi2 * (3000.0 + rands[7] * 4000.0) * t);
+        // Nur Rosa & Weißes Rauschen (keine sinusbasierte Metall-Modulation)
+        let noiseMix = 0.3 * whiteNoise + 0.7 * pinkNoise;
+        y = noiseMix;
 
-        y = noiseMix * 0.7 + metallicMod * 0.3;
-
-        // Envelope mit optionalem Soft-Attack
         if (t < attack) {
           env = t / attack;
         } else {
@@ -663,25 +650,22 @@ async function sound() {
       }
 
       // ------------------------------------------
-      // TYP 3: TOMS / CONGAS / BONGO / AGOGÔ
+      // TYP 3: TOMS / CONGAS / BONGO
       // ------------------------------------------
       else if (percType == 3) {
         let resonantFreq = freq * (0.4 + rands[5] * 1.2);
-        let pitchBend = Math.exp(-t * (8.0 + rands[6] * 25.0)) * (rands[7] - 0.3); // Kann auch Pitch UP machen
+        let pitchBend = Math.exp(-t * (8.0 + rands[6] * 25.0)) * (rands[7] - 0.3);
         let currentFreq = resonantFreq * (1.0 + pitchBend);
 
-        // Mischung aus Hauptwelle und Resonanz-Oszillator
-        let resWave = Math.sin(pi2 * currentFreq * t) + 0.3 * wave1;
-        y = Math.tanh(resWave * (1.0 + rands[8]))
-
+        y = Math.sin(pi2 * currentFreq * t) + 0.15 * wave1;
         env = Math.exp(-t * decaySpeed);
       }
 
       // ------------------------------------------
-      // TYP 4: CLAPS / MULTI-TAP PERCUSSION
+      // TYP 4: CLAPS / HAND PERCUSSION
       // ------------------------------------------
       else if (percType == 4) {
-        let tapCount = 2 + Math.floor(rands[5] * 3); // 2 bis 4 Taps
+        let tapCount = 2 + Math.floor(rands[5] * 3);
         let tapSpacing = 0.008 + rands[6] * 0.012;
         let tapEnv = 0.0;
 
@@ -693,48 +677,54 @@ async function sound() {
             }
           }
         }
-        // Tail
         let tailTime = tapCount * tapSpacing;
         if (t >= tailTime) {
           tapEnv += Math.exp(-(t - tailTime) * decaySpeed * 2.0);
         }
 
-        y = 0.7 * whiteNoise + 0.3 * wave1;
+        y = 0.8 * pinkNoise + 0.2 * wave1;
         env = tapEnv;
       }
 
       // ------------------------------------------
-      // TYP 5: METALLIC PERCUSSION (Cowbell, Triangle, Anvil, Bell)
+      // TYP 5: ORGANIC WOOD / TIGHT IMPACT (Ersetzt Glocken/Cowbell)
       // ------------------------------------------
       else {
-        // Ringmodulation zweier Rechteck-/Sinus-Wellen für typische Metall-Inharmonizität
-        let f1 = 500.0 + rands[5] * 1500.0;
-        let f2 = f1 * (1.2 + rands[6] * 0.8); // Inharmonischer Abstand
+        let f1 = 200.0 + rands[5] * 600.0;
+        let f2 = f1 * (1.4 + rands[6] * 0.3); // Harmoniesch verwandter Abstand
 
-        let m1 = Math.sin(pi2 * f1 * t) >= 0.0 ? 0.5 : -0.5;
+        let m1 = Math.sin(pi2 * f1 * t);
         let m2 = Math.sin(pi2 * f2 * t);
 
-        y = (m1 * m2) + 0.2 * whiteNoise; // Ringmod + kurzer Rausch-Transient
-        env = Math.exp(-t * decaySpeed * (0.8 + rands[7] * 1.5));
+        y = (0.7 * m1 + 0.3 * m2) + 0.1 * pinkNoise;
+        env = Math.exp(-t * decaySpeed * (1.5 + rands[7] * 1.5));
       }
 
+      let rawAudio = y * env;
+
       // ==========================================
-      // 3. OUT-FADE AN DER DURATION-GRENZE
+      // 3. WARM DRIVE (Kein Hard-Clipping)
+      // ==========================================
+      let drive = 1.0 + rands[8] * 1.5; // Sanftere Übersteuerung
+      let drivenAudio = Math.tanh(rawAudio * drive)
+
+      // ==========================================
+      // 4. OUT-FADE AN DER DURATION-GRENZE
       // ==========================================
       let fadeOutStart = duration - 0.02;
       if (t > fadeOutStart) {
         let fade = Math.max(0.0, 1.0 - (t - fadeOutStart) / 0.02);
-        env *= fade;
+        drivenAudio *= fade;
       }
 
-      let output = y * env;
+      // Sanftes Abfangen der Spitzen
+      if (drivenAudio > 1.0) drivenAudio = 1.0;
+      if (drivenAudio < -1.0) drivenAudio = -1.0;
 
-      // Soft-Clipping / Limiter
-      if (output > 1.0) output = 1.0;
-      if (output < -1.0) output = -1.0;
-
-      return output;
+      return drivenAudio;
     }).setOutput([audioCtx.sampleRate]);
+
+
 
 
 
@@ -790,7 +780,7 @@ async function sound() {
 	function percussion(sampleRate, tone, rands, duration) {
 		let xs = percussionGPU(sampleRate, tone, rands, duration)
 		xs = normalize(xs)
-		for(let i = 0;i < xs.length;++i) xs[i] *= 10
+		for(let i = 0;i < xs.length;++i) xs[i] *= 3
 		return xs
 	}
 
