@@ -560,114 +560,101 @@ async function sound() {
       let t = this.thread.x / sampleRate;
       let pi2 = 2.0 * Math.PI;
 
+      // Abbruch, falls der Thread außerhalb der gewünschten Dauer liegt
+      if (t > duration) return 0.0;
+
       // ==========================================
       // 0. PSEUDO-RANDOM NOISE GENERATOR (für GPU)
       // ==========================================
-      // Generiert deterministisches White Noise basierend auf der Sample-Position
       let noiseSeed = Math.sin(this.thread.x * 12.9898 + 78.233) * 43758.5453;
       let whiteNoise = (noiseSeed - Math.floor(noiseSeed)) * 2.0 - 1.0;
 
       // ==========================================
       // 1. PERCUSSION TYPE SELECTOR (rands[0])
       // ==========================================
-      // 0: Kick, 1: Snare, 2: Hi-Hat, 3: Tom, 4: Clap
+      // 0: Sub Kick / 808, 1: Snare, 2: Hi-Hat / Cymbal, 3: Tom / Resonant Perc, 4: Clap
       let percType = Math.floor(5.0 * rands[0]);
       let y = 0.0;
       let env = 0.0;
 
+      // Skalierungsfaktor für die Abfallgeschwindigkeit basierend auf `duration`
+      let decaySpeed = 4.0 / Math.max(0.01, duration);
+
       // ------------------------------------------
-      // TYP 0: KICK DRUM
+      // TYP 0: KICK / 808 BASS DRUM
       // ------------------------------------------
       if (percType == 0) {
-        let kickBaseFreq = 45.0 + rands[1] * 25.0; // Deep Sub (45-70 Hz)
-        let pitchEnv = Math.exp(-t * (30.0 + rands[2] * 40.0)); // Steiler Pitch-Drop
-        let currentFreq = kickBaseFreq + pitchEnv * (200.0 + rands[3] * 300.0);
+        let kickBaseFreq = 40.0 + rands[1] * 30.0;
+        let pitchEnv = Math.exp(-t * (35.0 + rands[2] * 20.0));
+        let currentFreq = kickBaseFreq + pitchEnv * (250.0 + rands[3] * 200.0);
 
-        // Sinus-Basis für sauberen Druck
         y = Math.sin(pi2 * currentFreq * t);
 
-        // Transient Click am Start (erste 3ms)
-        if (t < 0.003) {
-          y += whiteNoise * (1.0 - t / 0.003) * 0.5;
+        // Transient Click
+        if (t < 0.004) {
+          y += whiteNoise * (1.0 - t / 0.004) * 0.6;
         }
 
-        // Exponentieller Amplitude Decay
-        let decay = 0.15 + rands[4] * 0.35;
-        env = Math.exp(-t * (1.0 / decay) * 6.0);
+        env = Math.exp(-t * decaySpeed);
       }
 
       // ------------------------------------------
       // TYP 1: SNARE DRUM
       // ------------------------------------------
       else if (percType == 1) {
-        // A) Drum-Körper (Tonaler Body)
-        let bodyFreq = 150.0 + rands[1] * 100.0;
-        let bodyPitchEnv = Math.exp(-t * 40.0);
-        let bodyWave = Math.sin(pi2 * (bodyFreq + bodyPitchEnv * 150.0) * t);
-        let bodyEnv = Math.exp(-t * 20.0);
+        let bodyFreq = 140.0 + rands[1] * 80.0;
+        let bodyPitchEnv = Math.exp(-t * 30.0);
+        let bodyWave = Math.sin(pi2 * (bodyFreq + bodyPitchEnv * 120.0) * t);
 
-        // B) Snare-Teppich (Rauschen)
-        let noiseEnv = Math.exp(-t * (10.0 + rands[2] * 20.0));
+        let noiseEnv = Math.exp(-t * decaySpeed * 1.5);
+        let bodyEnv = Math.exp(-t * decaySpeed * 2.5);
 
-        // Mischung aus Body und Rauschen
-        let noiseRatio = 0.4 + rands[3] * 0.4;
+        let noiseRatio = 0.3 + rands[3] * 0.5;
         y = (1.0 - noiseRatio) * (bodyWave * bodyEnv) + noiseRatio * (whiteNoise * noiseEnv);
-        env = 1.0; // Envelope ist bereits im Waveform-Mixing integriert
+        env = 1.0;
       }
 
       // ------------------------------------------
       // TYP 2: HI-HAT / CYMBAL
       // ------------------------------------------
       else if (percType == 2) {
-        // Metallic Multi-Oscillator Noise Emulation
-        let f1 = 3000.0 + rands[1] * 1000.0;
-        let f2 = 5400.0 + rands[2] * 1000.0;
+        let f1 = 2800.0 + rands[1] * 1200.0;
+        let f2 = 5200.0 + rands[2] * 1500.0;
         let metallicWave = Math.sin(pi2 * f1 * t) + Math.sin(pi2 * f2 * t);
 
-        // Kombination aus Metall-Frequenzen und Rauschen
-        let rawHat = 0.6 * whiteNoise + 0.4 * metallicWave;
+        let rawHat = 0.65 * whiteNoise + 0.35 * metallicWave;
 
-        // Kurzes Decay für Closed Hat, längeres für Open Hat
-        let isClosed = rands[3] < 0.6;
-        let decay = isClosed ? (0.02 + rands[4] * 0.05) : (0.15 + rands[4] * 0.3);
-
+        env = Math.exp(-t * decaySpeed * 1.8);
         y = rawHat;
-        env = Math.exp(-t * (1.0 / decay) * 8.0);
       }
 
       // ------------------------------------------
-      // TYP 3: TOM / PERC
+      // TYP 3: TOM / RESONANT PERCUSSION (Bongos, Congas, Toms)
       // ------------------------------------------
       else if (percType == 3) {
-        let tomBaseFreq = freq * 0.5; // Verwendet die übergebene Tonhöhe
-        let pitchEnv = Math.exp(-t * (15.0 + rands[1] * 20.0));
-        let currentFreq = tomBaseFreq + pitchEnv * tomBaseFreq * 1.5;
+        let tomBaseFreq = freq * 0.6;
+        let pitchEnv = Math.exp(-t * 12.0);
+        let currentFreq = tomBaseFreq + pitchEnv * tomBaseFreq * 0.8;
 
-        // Leicht verzerrte Sinuswelle für resonanten Klang
-        let raw = Math.sin(pi2 * currentFreq * t);
-        y = Math.tanh(raw * 1.5);
+        let raw = Math.sin(pi2 * currentFreq * t) + 0.25 * Math.sin(pi2 * currentFreq * 2.01 * t);
+        y = Math.tanh(raw * 1.2)
 
-        let decay = 0.1 + rands[2] * 0.3;
-        env = Math.exp(-t * (1.0 / decay) * 5.0);
+        env = Math.exp(-t * decaySpeed);
       }
 
       // ------------------------------------------
-      // TYP 4: HAND CLAP
+      // TYP 4: CLAP
       // ------------------------------------------
       else {
-        // Claps bestehen aus mehreren kurzen Rausch-Impulsen kurz hintereinander
         let clapEnv = 0.0;
-
-        // 3 Vor-Impulse (Pre-Claps) innerhalb der ersten 30ms
         if (t < 0.010) {
-          clapEnv = Math.exp(-t * 400.0);
+          clapEnv = Math.exp(-t * 300.0);
         } else if (t >= 0.010 && t < 0.020) {
-          clapEnv = Math.exp(-(t - 0.010) * 400.0);
+          clapEnv = Math.exp(-(t - 0.010) * 300.0);
         } else if (t >= 0.020 && t < 0.030) {
-          clapEnv = Math.exp(-(t - 0.020) * 400.0);
+          clapEnv = Math.exp(-(t - 0.020) * 300.0);
         } else {
-          // Haupt-Decay
-          clapEnv = Math.exp(-(t - 0.030) * 25.0);
+          clapEnv = Math.exp(-(t - 0.030) * decaySpeed * 2.0);
         }
 
         y = whiteNoise;
@@ -675,16 +662,23 @@ async function sound() {
       }
 
       // ==========================================
-      // 2. ABSCHLUSS & HARD CLIPPER (Schutz vor Distortion)
+      // 2. OUT-FADE AN DER DURATION-GRENZE
       // ==========================================
+      let fadeOutStart = duration - 0.02;
+      if (t > fadeOutStart) {
+        let fade = Math.max(0.0, 1.0 - (t - fadeOutStart) / 0.02);
+        env *= fade;
+      }
+
       let output = y * env;
 
-      // Soft-Clipping gegen Übersteuerung
+      // Soft-Clipping
       if (output > 1.0) output = 1.0;
       if (output < -1.0) output = -1.0;
 
       return output;
     }).setOutput([audioCtx.sampleRate]);
+
 
 
  	make()
