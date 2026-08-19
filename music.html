@@ -531,33 +531,39 @@ async function sound() {
 
 
     percussionGPU = gpu.createKernel(function(sampleRate, tone, rands, duration) {
-      // Doppelte Ziel-Dauer
       let totalDuration = duration * 2.0;
       let t = this.thread.x / sampleRate;
-      let pi2 = 2.0 * Math.PI;
+      let pi2 = 6.283185307179586;
 
       if (t > totalDuration) return 0.0;
 
-      let freq = 440.0 * Math.pow(2.0, ((tone + 36) % 12) / 12.0);
+      // GPU-sicheres Float-Modulo
+      let toneOffset = tone + 36.0;
+      let toneMod = toneOffset - (12.0 * Math.floor(toneOffset / 12.0));
+      let freq = 440.0 * Math.pow(2.0, toneMod / 12.0);
 
       // ==========================================
-      // 0. NOISE & RANDOM SEEDS
+      // 0. GEGLÄTTETE NOISE GENERATION (Weniger Aliasing)
       // ==========================================
-      let noiseSeed1 = Math.sin(this.thread.x * 12.9898 + 78.233) * 43758.5453;
-      let whiteNoise = (noiseSeed1 - Math.floor(noiseSeed1)) * 2.0 - 1.0;
+      // Verbesserte Hash-Funktion für weicheres Rauschen
+      let nSeed1 = Math.sin(this.thread.x * 12.9898) * 43758.5453;
+      let rawNoise1 = (nSeed1 - Math.floor(nSeed1)) * 2.0 - 1.0;
 
-      let noiseSeed2 = Math.cos(this.thread.x * 4.898 + 23.23) * 23421.1231;
-      let pinkNoise = (noiseSeed2 - Math.floor(noiseSeed2)) * 2.0 - 1.0;
+      let nSeed2 = Math.sin(this.thread.x * 78.233) * 12345.6789;
+      let rawNoise2 = (nSeed2 - Math.floor(nSeed2)) * 2.0 - 1.0;
 
-      // Skalierter Decay: Verhindert, dass Drums matschig klingen
+      // Tiefpass-Filterung für das Rauschen (Schwächt harsche Hochfrequenzen ab)
+      let lpCutoff = 0.3 + rands[4] * 0.4; // Filterkoeffizient
+      let whiteNoise = rawNoise1 * lpCutoff + rawNoise2 * (1.0 - lpCutoff);
+      let pinkNoise = (rawNoise1 + rawNoise2 * 0.5) * 0.66;
+
       let decaySpeed = (5.0 + rands[1] * 7.0) / Math.max(0.01, totalDuration);
 
       // ==========================================
-      // 1. ORGANIC OSZILLATOREN
+      // 1. ORGANISCHER OSZILLATOR
       // ==========================================
       let fMult1 = 0.5 + rands[3] * 3.5;
       let phase1 = (t * freq * fMult1) - Math.floor(t * freq * fMult1);
-
       let wave1 = 0.0;
       if (rands[2] < 0.5) {
         wave1 = Math.sin(pi2 * phase1);
@@ -566,78 +572,71 @@ async function sound() {
       }
 
       // ==========================================
-      // 2. 10 SAUBERE PERCUSSION KATEGORIEN
+      // 2. PERCUSSION KATEGORIEN
       // ==========================================
       let percType = Math.floor(10.0 * rands[0]);
+      if (percType > 9) percType = 9;
+
       let y = 0.0;
       let env = 0.0;
 
-      // ------------------------------------------
-      // TYP 0: KICK / LONG 808 SUB IMPACT
-      // ------------------------------------------
+      // TYP 0: KICK
       if (percType == 0) {
         let kickBaseFreq = 30.0 + rands[5] * 40.0;
-        let pitchEnv = Math.exp(-t * (18.0 + rands[7] * 20.0));
-        let currentFreq = kickBaseFreq + pitchEnv * (120.0 + rands[6] * 140.0);
+        let kDecay = 18.0 + rands[7] * 20.0;
+        let pitchEnvInt = (1.0 - Math.exp(-t * kDecay)) / kDecay;
+        let phase = kickBaseFreq * t + pitchEnvInt * (120.0 + rands[6] * 140.0);
 
-        y = Math.sin(pi2 * currentFreq * t);
-
+        y = Math.sin(pi2 * phase);
         if (t < 0.005) {
-          y += (pinkNoise * 0.2 + wave1 * 0.2) * (1.0 - t / 0.005);
+          // Reduzierter Noise-Anteil beim Transient
+          y += (pinkNoise * 0.08 + wave1 * 0.1) * (1.0 - t / 0.005);
         }
-        // Nutzen der längeren Duration für epischen 808-Sub-Bass Tail
         env = Math.exp(-t * (decaySpeed * 0.6));
       }
 
-      // ------------------------------------------
-      // TYP 1: ORGANIC SNARE / REVERB TAIL
-      // ------------------------------------------
+      // TYP 1: SNARE
       else if (percType == 1) {
-        let pitchEnv = Math.exp(-t * 35.0);
-        let bodyFreq = (110.0 + rands[6] * 110.0) + pitchEnv * 50.0;
+        let kDecay = 35.0;
+        let pitchEnvInt = (1.0 - Math.exp(-t * kDecay)) / kDecay;
+        let bodyBase = 110.0 + rands[6] * 110.0;
+        let phase = bodyBase * t + pitchEnvInt * 50.0;
 
-        let body = Math.sin(pi2 * bodyFreq * t) + 0.15 * wave1;
-        let noiseRatio = 0.35 + rands[7] * 0.4;
-
+        let body = Math.sin(pi2 * phase) + 0.15 * wave1;
+        let noiseRatio = 0.25 + rands[7] * 0.3; // Rauschanteil reduziert
         let bodyEnv = Math.exp(-t * decaySpeed * 2.2);
-        let noiseEnv = Math.exp(-t * decaySpeed * (0.8 + rands[8] * 0.8));
+        let noiseEnv = Math.exp(-t * decaySpeed * (1.2 + rands[8] * 0.8)); // Schnellerer Noise-Decay
 
         y = (1.0 - noiseRatio) * body * bodyEnv + noiseRatio * pinkNoise * noiseEnv;
         env = 1.0;
       }
 
-      // ------------------------------------------
-      // TYP 2: NATURAL HI-HAT / LONG SHAKER
-      // ------------------------------------------
+      // TYP 2: HI-HAT / SHAKER
       else if (percType == 2) {
         let isShaker = rands[5] > 0.5;
         let attack = isShaker ? (0.008 + rands[6] * 0.025) : 0.0005;
-
-        let noiseMix = 0.3 * whiteNoise + 0.7 * pinkNoise;
-        y = noiseMix;
+        // Sanfterer Rausch-Mix
+        y = 0.2 * whiteNoise + 0.5 * pinkNoise;
 
         if (t < attack) {
           env = t / attack;
         } else {
-          env = Math.exp(-(t - attack) * decaySpeed * (1.5 + rands[8] * 1.5));
+          env = Math.exp(-(t - attack) * decaySpeed * (2.0 + rands[8] * 1.5));
         }
       }
 
-      // ------------------------------------------
-      // TYP 3: TOMS / DEEP CONGAS
-      // ------------------------------------------
+      // TYP 3: TOMS
       else if (percType == 3) {
         let resonantFreq = 70.0 + rands[5] * 140.0;
-        let pitchBend = Math.exp(-t * 25.0) * (rands[6] * 0.3);
-        let currentFreq = resonantFreq * (1.0 + pitchBend);
+        let kDecay = 25.0;
+        let pitchEnvInt = (1.0 - Math.exp(-t * kDecay)) / kDecay;
+        let phase = resonantFreq * (t + pitchEnvInt * (rands[6] * 0.3));
 
-        y = Math.sin(pi2 * currentFreq * t) + 0.1 * wave1;
+        y = Math.sin(pi2 * phase) + 0.1 * wave1;
         env = Math.exp(-t * decaySpeed * 1.1);
       }
 
-      // ------------------------------------------
-      // TYP 4: CLAPS / LARGE ROOM HAND PERCUSSION
-      // ------------------------------------------
+      // TYP 4: CLAPS
       else if (percType == 4) {
         let tapCount = 2 + Math.floor(rands[5] * 3);
         let tapSpacing = 0.01 + rands[6] * 0.012;
@@ -653,85 +652,80 @@ async function sound() {
         }
         let tailTime = tapCount * tapSpacing;
         if (t >= tailTime) {
-          tapEnv += Math.exp(-(t - tailTime) * decaySpeed * 1.5);
+          tapEnv += Math.exp(-(t - tailTime) * decaySpeed * 1.8);
         }
 
-        y = 0.85 * pinkNoise + 0.15 * wave1;
+        y = 0.7 * pinkNoise + 0.1 * wave1;
         env = tapEnv;
       }
 
-      // ------------------------------------------
-      // TYP 5: WOODBLOCK / CLAVES
-      // ------------------------------------------
+      // TYP 5: WOODBLOCK
       else if (percType == 5) {
         let f1 = 500.0 + rands[5] * 500.0;
         let f2 = f1 * 1.5;
         let transient = Math.exp(-t * 700.0);
 
-        y = (0.7 * Math.sin(pi2 * f1 * t) + 0.3 * Math.sin(pi2 * f2 * t)) + transient * 0.3;
+        y = (0.7 * Math.sin(pi2 * f1 * t) + 0.3 * Math.sin(pi2 * f2 * t)) + transient * 0.15;
         env = Math.exp(-t * decaySpeed * 3.0);
       }
 
-      // ------------------------------------------
       // TYP 6: TABLA / DJEMBE
-      // ------------------------------------------
       else if (percType == 6) {
-        let pitchEnv = Math.exp(-t * 15.0);
-        let f = (80.0 + rands[5] * 70.0) + pitchEnv * (40.0 + rands[6] * 70.0);
+        let kDecay = 15.0;
+        let pitchEnvInt = (1.0 - Math.exp(-t * kDecay)) / kDecay;
+        let baseF = 80.0 + rands[5] * 70.0;
+        let phase = baseF * t + pitchEnvInt * (40.0 + rands[6] * 70.0);
 
-        y = Math.sin(pi2 * f * t) + 0.25 * Math.sin(pi2 * f * 2.0 * t) + 0.05 * pinkNoise;
+        y = Math.sin(pi2 * phase) + 0.25 * Math.sin(pi2 * phase * 2.0);
         env = Math.exp(-t * decaySpeed * 1.0);
       }
 
-      // ------------------------------------------
-      // TYP 7: LONG GUIRO / RATSCHE
-      // ------------------------------------------
+      // TYP 7: GUIRO
       else if (percType == 7) {
         let strikeRate = 35.0 + rands[5] * 35.0;
         let ripple = 0.5 + 0.5 * Math.sin(pi2 * strikeRate * t);
         let body = Math.sin(pi2 * (350.0 + rands[6] * 200.0) * t);
 
-        y = ripple * (0.6 * body + 0.4 * pinkNoise);
+        y = ripple * (0.7 * body + 0.2 * pinkNoise);
         env = Math.exp(-t * decaySpeed * 0.8);
       }
 
-      // ------------------------------------------
-      // TYP 8: CABASA / KÖRNIGES RAUSCHEN
-      // ------------------------------------------
+      // TYP 8: CABASA
       else if (percType == 8) {
         let grainFreq = 150.0 + rands[5] * 180.0;
         let grain = 0.5 + 0.5 * Math.sin(pi2 * grainFreq * t);
         let attack = 0.004;
 
-        y = pinkNoise * grain;
+        y = pinkNoise * grain * 0.7;
         if (t < attack) {
           env = t / attack;
         } else {
-          env = Math.exp(-(t - attack) * decaySpeed * 2.2);
+          env = Math.exp(-(t - attack) * decaySpeed * 2.5);
         }
       }
 
-      // ------------------------------------------
       // TYP 9: CINEMATIC SUB DROP
-      // ------------------------------------------
       else {
-        let f = (40.0 + rands[5] * 30.0) * Math.exp(-t * 5.0);
-        let snap = t < 0.002 ? (1.0 - t / 0.002) * pinkNoise : 0.0;
+        let kDecay = 5.0;
+        let pitchEnvInt = (1.0 - Math.exp(-t * kDecay)) / kDecay;
+        let baseF = 40.0 + rands[5] * 30.0;
+        let phase = baseF * pitchEnvInt;
+        let snap = t < 0.002 ? (1.0 - t / 0.002) * pinkNoise * 0.2 : 0.0;
 
-        y = Math.sin(pi2 * f * t) * 0.8 + snap * 0.4;
-        env = Math.exp(-t * decaySpeed * 0.5); // Langer Ausklang für tiefe Sub Drops
+        y = Math.sin(pi2 * phase) * 0.85 + snap;
+        env = Math.exp(-t * decaySpeed * 0.5);
       }
 
       let rawAudio = y * env;
 
       // ==========================================
-      // 3. WARM DRIVE (Sättigung)
+      // 3. SANFTE SÄTTIGUNG (Verhindert Aliasing-Rauschen)
       // ==========================================
-      let drive = 1.0 + rands[8] * 1.0;
+      let drive = 0.8 + rands[8] * 0.5; // Moderaterer Drive
       let drivenAudio = Math.tanh(rawAudio * drive);
 
       // ==========================================
-      // 4. OUT-FADE AN DER DOPPELTEN DURATION-GRENZE
+      // 4. OUT-FADE
       // ==========================================
       let fadeOutStart = totalDuration - 0.03;
       if (t > fadeOutStart) {
@@ -739,13 +733,8 @@ async function sound() {
         drivenAudio *= fade;
       }
 
-      if (drivenAudio > 1.0) drivenAudio = 1.0;
-      if (drivenAudio < -1.0) drivenAudio = -1.0;
-
-      return drivenAudio;
+      return Math.min(1.0, Math.max(-1.0, drivenAudio));
     }).setOutput([audioCtx.sampleRate]);
-
-
 
 
 
