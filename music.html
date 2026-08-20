@@ -542,21 +542,6 @@ async function sound() {
       let toneMod = toneOffset - (12.0 * Math.floor(toneOffset / 12.0));
       let freq = 440.0 * Math.pow(2.0, toneMod / 12.0);
 
-      // ==========================================
-      // 0. GEGLÄTTETE NOISE GENERATION (Weniger Aliasing)
-      // ==========================================
-      // Verbesserte Hash-Funktion für weicheres Rauschen
-      let nSeed1 = Math.sin(this.thread.x * 12.9898) * 43758.5453;
-      let rawNoise1 = (nSeed1 - Math.floor(nSeed1)) * 2.0 - 1.0;
-
-      let nSeed2 = Math.sin(this.thread.x * 78.233) * 12345.6789;
-      let rawNoise2 = (nSeed2 - Math.floor(nSeed2)) * 2.0 - 1.0;
-
-      // Tiefpass-Filterung für das Rauschen (Schwächt harsche Hochfrequenzen ab)
-      let lpCutoff = 0.3 + rands[4] * 0.4; // Filterkoeffizient
-      let whiteNoise = rawNoise1 * lpCutoff + rawNoise2 * (1.0 - lpCutoff);
-      let pinkNoise = (rawNoise1 + rawNoise2 * 0.5) * 0.66;
-
       let decaySpeed = (5.0 + rands[1] * 7.0) / Math.max(0.01, totalDuration);
 
       // ==========================================
@@ -572,7 +557,7 @@ async function sound() {
       }
 
       // ==========================================
-      // 2. PERCUSSION KATEGORIEN
+      // 2. PERCUSSION KATEGORIEN (OHNE PIEPSEN)
       // ==========================================
       let percType = Math.floor(10.0 * rands[0]);
       if (percType > 9) percType = 9;
@@ -589,8 +574,7 @@ async function sound() {
 
         y = Math.sin(pi2 * phase);
         if (t < 0.005) {
-          // Reduzierter Noise-Anteil beim Transient
-          y += (pinkNoise * 0.08 + wave1 * 0.1) * (1.0 - t / 0.005);
+          y += (wave1 * 0.1) * (1.0 - t / 0.005);
         }
         env = Math.exp(-t * (decaySpeed * 0.6));
       }
@@ -602,21 +586,27 @@ async function sound() {
         let bodyBase = 110.0 + rands[6] * 110.0;
         let phase = bodyBase * t + pitchEnvInt * 50.0;
 
+        let snareMetallic = Math.sin(pi2 * phase * 2.3) * Math.sin(pi2 * phase * 4.1);
         let body = Math.sin(pi2 * phase) + 0.15 * wave1;
-        let noiseRatio = 0.25 + rands[7] * 0.3; // Rauschanteil reduziert
-        let bodyEnv = Math.exp(-t * decaySpeed * 2.2);
-        let noiseEnv = Math.exp(-t * decaySpeed * (1.2 + rands[8] * 0.8)); // Schnellerer Noise-Decay
 
-        y = (1.0 - noiseRatio) * body * bodyEnv + noiseRatio * pinkNoise * noiseEnv;
-        env = 1.0;
+        y = 0.7 * body + 0.3 * snareMetallic;
+        env = Math.exp(-t * decaySpeed * 1.8);
       }
 
-      // TYP 2: HI-HAT / SHAKER
+      // TYP 2: HI-HAT (Frequenzen leicht gegeneinander verstimmt + Pitch-Drop gegen Piepsen)
       else if (percType == 2) {
         let isShaker = rands[5] > 0.5;
         let attack = isShaker ? (0.008 + rands[6] * 0.025) : 0.0005;
-        // Sanfterer Rausch-Mix
-        y = 0.2 * whiteNoise + 0.5 * pinkNoise;
+
+        // Pitch sweep verhindert stehende Pfeiftöne
+        let pitchDrop = Math.exp(-t * 15.0);
+        let baseH = (2000.0 + rands[6] * 1500.0) * (1.0 + pitchDrop * 0.2);
+
+        let m1 = Math.sin(pi2 * baseH * t);
+        let m2 = Math.sin(pi2 * (baseH * 1.414) * t); // Inharmonischer Faktor (Wurzel 2)
+        let m3 = Math.sin(pi2 * (baseH * 1.732) * t); // Inharmonischer Faktor (Wurzel 3)
+
+        y = (m1 * m2 + m2 * m3) * 0.5;
 
         if (t < attack) {
           env = t / attack;
@@ -636,7 +626,7 @@ async function sound() {
         env = Math.exp(-t * decaySpeed * 1.1);
       }
 
-      // TYP 4: CLAPS
+      // TYP 4: CLAPS (Keine starren Frequenzen mehr)
       else if (percType == 4) {
         let tapCount = 2 + Math.floor(rands[5] * 3);
         let tapSpacing = 0.01 + rands[6] * 0.012;
@@ -655,14 +645,16 @@ async function sound() {
           tapEnv += Math.exp(-(t - tailTime) * decaySpeed * 1.8);
         }
 
-        y = 0.7 * pinkNoise + 0.1 * wave1;
+        let clapFreq = 600.0 + rands[7] * 400.0;
+        let metallicBody = Math.sin(pi2 * clapFreq * t) * Math.sin(pi2 * clapFreq * 2.31 * t);
+        y = 0.7 * metallicBody + 0.3 * wave1;
         env = tapEnv;
       }
 
       // TYP 5: WOODBLOCK
       else if (percType == 5) {
         let f1 = 500.0 + rands[5] * 500.0;
-        let f2 = f1 * 1.5;
+        let f2 = f1 * 1.48; // Leicht verstimmt gegen stehende Wellen
         let transient = Math.exp(-t * 700.0);
 
         y = (0.7 * Math.sin(pi2 * f1 * t) + 0.3 * Math.sin(pi2 * f2 * t)) + transient * 0.15;
@@ -686,17 +678,20 @@ async function sound() {
         let ripple = 0.5 + 0.5 * Math.sin(pi2 * strikeRate * t);
         let body = Math.sin(pi2 * (350.0 + rands[6] * 200.0) * t);
 
-        y = ripple * (0.7 * body + 0.2 * pinkNoise);
+        y = ripple * body;
         env = Math.exp(-t * decaySpeed * 0.8);
       }
 
-      // TYP 8: CABASA
+      // TYP 8: CABASA (Weiches FM-Grit ohne Piepsen)
       else if (percType == 8) {
         let grainFreq = 150.0 + rands[5] * 180.0;
         let grain = 0.5 + 0.5 * Math.sin(pi2 * grainFreq * t);
         let attack = 0.004;
 
-        y = pinkNoise * grain * 0.7;
+        let baseF = 1800.0 + rands[7] * 600.0;
+        let fmHigh = Math.sin(pi2 * baseF * t + Math.sin(pi2 * baseF * 1.5 * t) * 1.5);
+        y = fmHigh * grain * 0.7;
+
         if (t < attack) {
           env = t / attack;
         } else {
@@ -710,18 +705,17 @@ async function sound() {
         let pitchEnvInt = (1.0 - Math.exp(-t * kDecay)) / kDecay;
         let baseF = 40.0 + rands[5] * 30.0;
         let phase = baseF * pitchEnvInt;
-        let snap = t < 0.002 ? (1.0 - t / 0.002) * pinkNoise * 0.2 : 0.0;
 
-        y = Math.sin(pi2 * phase) * 0.85 + snap;
+        y = Math.sin(pi2 * phase) * 0.85;
         env = Math.exp(-t * decaySpeed * 0.5);
       }
 
       let rawAudio = y * env;
 
       // ==========================================
-      // 3. SANFTE SÄTTIGUNG (Verhindert Aliasing-Rauschen)
+      // 3. SANFTE SÄTTIGUNG
       // ==========================================
-      let drive = 0.8 + rands[8] * 0.5; // Moderaterer Drive
+      let drive = 0.8 + rands[8] * 0.5;
       let drivenAudio = Math.tanh(rawAudio * drive);
 
       // ==========================================
@@ -735,8 +729,6 @@ async function sound() {
 
       return Math.min(1.0, Math.max(-1.0, drivenAudio));
     }).setOutput([audioCtx.sampleRate]);
-
-
 
  	make()
  	play()
