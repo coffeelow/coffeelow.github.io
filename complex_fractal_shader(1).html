@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fraktal Formel & Pixel-MD5 Zufallsgenerator</title>
+    <!-- SparkMD5 for fast client-side MD5 hashing of ArrayBuffers -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/spark-md5/3.0.2/spark-md5.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body, html { width: 100%; height: 100%; overflow: hidden; background: #000; font-family: 'Courier New', monospace; }
+        canvas { width: 100vw; height: 100vh; display: block; }
+        #overlay {
+            position: absolute; top: 15px; left: 15px;
+            background: rgba(0, 0, 0, 0.88); color: #00ffff;
+            padding: 16px 22px; border-radius: 8px;
+            border: 1px solid rgba(0, 255, 255, 0.4);
+            pointer-events: none;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+            font-size: 0.85rem;
+            line-height: 1.5;
+            max-width: 520px;
+        }
+        .formula-title { font-weight: bold; color: #ffffff; margin-bottom: 6px; font-size: 0.95rem; }
+        .math-block { color: #ff00ff; background: rgba(255, 0, 255, 0.1); padding: 8px 12px; border-radius: 4px; margin: 6px 0; word-break: break-word; }
+        .sub-math { color: #00ffaa; font-size: 0.8rem; margin-bottom: 10px; }
+        .hash-box {
+            background: rgba(0, 255, 255, 0.08);
+            border: 1px dashed rgba(0, 255, 255, 0.3);
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 8px;
+        }
+        .hash-title { color: #ffff00; font-weight: bold; margin-bottom: 4px; }
+        .hash-val { color: #ffffff; font-size: 0.82rem; letter-spacing: 1px; word-break: break-all; }
+        .rand-val { color: #ff9900; font-weight: bold; font-size: 0.9rem; margin-top: 4px; }
+    </style>
+</head>
+<body>
+
+    <div id="overlay">
+        <div class="formula-title">Kernformel: f(z, f<sub>prev</sub>)</div>
+        
+        <div class="math-block">
+            f(z, f<sub>prev</sub>) = [ f<sub>prev</sub> / (f<sub>prev</sub> + k<sub>1</sub>) ] · [ z / (z + k<sub>2</sub>) ]<sup>[ f<sub>prev</sub> / (f<sub>prev</sub> + k<sub>1</sub>) ]</sup> + [ k<sub>3</sub> / f<sub>prev</sub> ]
+        </div>
+
+        <div class="sub-math">
+            <b>Verschachtelung:</b> x(z) = f( f(z, z), f(z, z) )<br>
+            <b>Komponenten:</b> op1 = f<sub>prev</sub>/(f<sub>prev</sub>+k<sub>1</sub>), opX = z/(z+k<sub>2</sub>), op0 = k<sub>3</sub>/f<sub>prev</sub>
+        </div>
+
+        <div class="hash-box">
+            <div class="hash-title">MD5-Zufallsgenerator: MD5(RGB(x,y) ∀ x,y)</div>
+            <div id="hashDisplay" class="hash-val">Berechne Hash...</div>
+            <div id="randDisplay" class="rand-val">Zufallswert: -</div>
+        </div>
+    </div>
+
+    <canvas id="glcanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('glcanvas');
+        const gl = canvas.getContext('webgl', { preserveDrawingBuffer: true });
+
+        if (!gl) {
+            alert('WebGL nicht unterstützt!');
+        }
+
+        const vsSource = `
+            attribute vec2 aPosition;
+            void main() {
+                gl_Position = vec4(aPosition, 0.0, 1.0);
+            }
+        `;
+
+        const fsSource = `
+            precision highp float;
+            uniform vec2 uResolution;
+            uniform float uTime;
+
+            // Komplexe Arithmetik
+            vec2 c_add(vec2 a, vec2 b) { return a + b; }
+            vec2 c_mul(vec2 a, vec2 b) { return vec2(a.x*b.x - a.y*b.y, a.x*b.y + a.y*b.x); }
+            vec2 c_div(vec2 a, vec2 b) {
+                float d = dot(b, b);
+                return vec2(dot(a, b), a.y*b.x - a.x*b.y) / max(d, 1e-8);
+            }
+            vec2 c_ln(vec2 a) { return vec2(log(max(length(a), 1e-8)), atan(a.y, a.x)); }
+            vec2 c_exp(vec2 a) { return exp(a.x) * vec2(cos(a.y), sin(a.y)); }
+            vec2 c_pow(vec2 base, vec2 exp_v) { return c_exp(c_mul(c_ln(base), exp_v)); }
+
+            // Kernformel f(z, f_prev)
+            vec2 evalF(vec2 z, vec2 f_prev, float k1, float k2, float k3) {
+                vec2 op1 = c_div(f_prev, c_add(f_prev, vec2(k1, 0.0)));
+                vec2 opX = c_div(z, c_add(z, vec2(k2, 0.0)));
+                vec2 op0 = c_div(vec2(k3, 0.0), f_prev);
+                vec2 term1 = c_mul(op1, c_pow(opX, op1));
+                return c_add(term1, op0);
+            }
+
+            vec4 colorRGBFormula(vec2 z, float index_accum, float time) {
+                float r_len = length(z);
+                float angle = atan(z.y, z.x);
+
+                float index = angle * 0.15 + log2(max(r_len, 1e-5)) * 0.2 + index_accum * 0.005 + time * 0.02;
+
+                // Farbmorphing bleibt gewohnt ruhig
+                float a = 10.0 * sin(time * 0.03);
+                float b = 10.0 * cos(time * 0.025);
+
+                float c = 10.0 * sin(time * 0.035 + 1.5);
+                float d = 10.0 * cos(time * 0.02 + 2.0);
+
+                float e = 10.0 * sin(time * 0.028 + 3.0);
+                float g = 10.0 * cos(time * 0.032 + 4.5);
+
+                float red_val   = 128.0 * sin(a * index + b) + 128.0;
+                float green_val = 128.0 * sin(c * index + d) + 128.0;
+                float blue_val  = 128.0 * sin(e * index + g) + 128.0;
+
+                vec3 rgb = vec3(red_val, green_val, blue_val) / 255.0;
+
+                return vec4(rgb, 1.0);
+            }
+
+            void main() {
+                vec2 st = (gl_FragCoord.xy - 0.5 * uResolution.xy) / min(uResolution.x, uResolution.y) * 2.5;
+
+                // Schnelles Fraktalmorphing der k-Parameter
+                float k1 = 0.8 + 0.4 * sin(uTime * 0.22);
+                float k2 = 1.0 + 0.5 * cos(uTime * 0.18);
+                float k3 = 0.5 + 0.3 * sin(uTime * 0.26);
+
+                vec2 z = st;
+                vec2 f_state = z; 
+                float orbit_accum = 0.0;
+
+                for (int i = 0; i < 24; i++) {
+                    vec2 f1 = evalF(z, f_state, k1, k2, k3);
+                    vec2 f2 = evalF(f1, f1, k1, k2, k3);
+                    
+                    orbit_accum += length(f2 - z);
+                    z = f2;
+                    f_state = f1;
+                }
+
+                gl_FragColor = colorRGBFormula(z, orbit_accum, uTime);
+            }
+        `;
+
+        function createShader(gl, type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error('Shader Fehler:', gl.getShaderInfoLog(shader));
+                gl.deleteShader(shader);
+                return null;
+            }
+            return shader;
+        }
+
+        const vs = createShader(gl, gl.VERTEX_SHADER, vsSource);
+        const fs = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
+        const program = gl.createProgram();
+        gl.attachShader(program, vs);
+        gl.attachShader(program, fs);
+        gl.linkProgram(program);
+        gl.useProgram(program);
+
+        const positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+            -1, -1,  1, -1, -1,  1,
+            -1,  1,  1, -1,  1,  1,
+        ]), gl.STATIC_DRAW);
+
+        const aPosLoc = gl.getAttribLocation(program, "aPosition");
+        gl.enableVertexAttribArray(aPosLoc);
+        gl.vertexAttribPointer(aPosLoc, 2, gl.FLOAT, false, 0, 0);
+
+        const uResLoc = gl.getUniformLocation(program, "uResolution");
+        const uTimeLoc = gl.getUniformLocation(program, "uTime");
+
+        const hashDisplay = document.getElementById('hashDisplay');
+        const randDisplay = document.getElementById('randDisplay');
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            gl.viewport(0, 0, canvas.width, canvas.height);
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        let frameCounter = 0;
+
+        function computeMD5FromPixels() {
+            // Downsample raster read target for optimal high-FPS performance
+            const sampleW = 120;
+            const sampleH = Math.max(1, Math.floor(sampleW * (canvas.height / canvas.width)));
+            const pixelBuffer = new Uint8Array(sampleW * sampleH * 4);
+
+            gl.readPixels(0, 0, sampleW, sampleH, gl.RGBA, gl.UNSIGNED_BYTE, pixelBuffer);
+
+            // Filter out Alpha channel to process exact RGB(x,y) array
+            const rgbBuffer = new Uint8Array(sampleW * sampleH * 3);
+            let rgbIdx = 0;
+            for (let i = 0; i < pixelBuffer.length; i += 4) {
+                rgbBuffer[rgbIdx++] = pixelBuffer[i];     // Red
+                rgbBuffer[rgbIdx++] = pixelBuffer[i + 1]; // Green
+                rgbBuffer[rgbIdx++] = pixelBuffer[i + 2]; // Blue
+            }
+
+            // Calculate MD5 hash
+            const hexHash = SparkMD5.ArrayBuffer.hash(rgbBuffer.buffer);
+
+            // Convert leading 8 hex characters of hash into float in [0, 1)
+            const subHex = hexHash.substring(0, 8);
+            const intVal = parseInt(subHex, 16);
+            const floatRand = (intVal / 0xFFFFFFFF);
+
+            hashDisplay.innerText = hexHash;
+            randDisplay.innerText = `Zufallswert [0..1): ${floatRand.toFixed(8)}`;
+        }
+
+        function render(time) {
+            const t = time * 0.001;
+            gl.uniform2f(uResLoc, canvas.width, canvas.height);
+            gl.uniform1f(uTimeLoc, t);
+
+            gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+            // Compute MD5 hash periodically (every 3 frames) to preserve smoothness
+            frameCounter++;
+            if (frameCounter % 3 === 0) {
+                computeMD5FromPixels();
+            }
+
+            requestAnimationFrame(render);
+        }
+
+        requestAnimationFrame(render);
+    </script>
+</body>
+</html>
