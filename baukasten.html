@@ -1,0 +1,632 @@
+<html>
+
+<head>
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+</head>
+
+<body>
+
+<div id="abc" style="width:80%;margin-left:19%">
+<script src="MyLib.js"></script>
+
+<script>
+
+
+    Random("" + new Date());
+
+
+
+let boards = [];
+let x = null;
+
+function getOffset( el ) {
+	var _x = 0;
+	var _y = 0;
+	while( el && !isNaN( el.offsetLeft ) && !isNaN( el.offsetTop ) ) {
+	_x += el.offsetLeft;
+	_y += el.offsetTop;
+	el = el.offsetParent;
+	}
+	return { top: _y, left: _x };
+}
+	
+function xMouseMove(evt) {
+    evt.preventDefault();
+    
+    if(evt.touches){
+        evt.pageX = evt.touches[0].pageX;
+        evt.pageY = evt.touches[0].pageY;
+    }
+	if(x == null) return;
+	let xyz = getOffset(x);
+	x.style.top = evt.pageY - Math.round(x.offsetHeight / 2);
+	x.style.left = evt.pageX - Math.round(x.offsetWidth / 2);
+	x.style.opacity = 0.5;
+
+	boards.forEach((b) => {
+		var xy = getOffset(b.domElement);
+		
+		b.mousex = Math.floor((evt.pageX - xy.left) * b.w / b.domElement.offsetWidth);
+		b.mousey = Math.floor((evt.pageY - xy.top) * b.h / b.domElement.offsetHeight);
+
+		if(b.mousex > b.w - 1) {
+			b.mousex = -1;
+		} 
+
+		/*if(b.mousex >= 0 && b.mousey >= 0) {
+			if(evt.target == b.domElement) {
+				x.style.left = Math.round(b.domElement.offsetWidth * b.mousex / b.w + xy.left);
+				x.style.top = Math.round(b.domElement.offsetHeight * b.mousey / b.h + xy.top);
+			}
+		}*/
+		b.render();
+	});
+}
+
+function render() {
+	boards.forEach((b) => {
+		b.render();
+	});
+}
+
+function xClick(evt) {
+	boards.forEach((b) => {
+		if(b.mousex >= 0 && b.mousey >= 0 && b.mousex < b.w && b.mousey < b.h) {
+			let y = b.board[b.mousex + b.w * b.mousey];
+			if(y != null) {
+				var xy = getOffset(x);
+				
+				b.board[b.mousex + b.w * b.mousey] = null;
+				document.body.appendChild(y);
+
+				y.style.width = 200;
+				y.style.position = "absolute";
+				y.style.zIndex = "10";	
+				y.style.top = evt.offsetY + xy.top - Math.round(y.offsetHeight / 2);
+				y.style.left = evt.offsetX + xy.left - Math.round(y.offsetWidth / 2);
+				
+				y.addEventListener("mousemove",xMouseMove);
+				y.addEventListener("touchmove",xMouseMove);
+				y.addEventListener("mousedown",xClick);
+				
+				if(x.board.domButtonLockElement.checked) y.src = y.src1;
+				y.style.opacity = 0.5;
+			}
+			b.board[b.mousex + b.w * b.mousey] = x;
+			if(!x.board.domButtonLockElement.checked) x.src = x.src1;
+			b.lastx = b.mousex;
+			b.lasty = b.mousey;
+			document.body.removeChild(x);
+			x = y;
+		} 
+		b.render();
+		
+	});
+}
+
+class Board {	
+	domElementClick(evt) {
+		x = this.board[this.mousex + this.w * this.mousey];
+		if(this.domButtonLockElement.checked && x) x.src = x.src1;
+		this.board[this.mousex + this.w * this.mousey] = null;
+		this.lastx = this.mousex;
+		this.lasty = this.mousey;
+		this.render();
+		if(x) {
+			document.body.appendChild(x);
+			
+			var cv = this.domElement;
+			var xy = getOffset(cv);
+			
+			x.style.width = 200;
+			x.style.position = "absolute";
+			x.style.zIndex = "10";	
+			x.style.top = evt.pageY - Math.round(x.offsetHeight / 2);
+			x.style.left = evt.pageX - Math.round(x.offsetWidth / 2);
+			x.style.opacity = 0.5;
+			
+			x.addEventListener("mousemove",xMouseMove);
+			x.addEventListener("touchmove",xMouseMove);
+			x.addEventListener("click",xClick);
+			x.onload = render;
+		}
+	}
+	
+	constructor() {
+		this.domDiv = document.createElement("div");
+		this.domDiv.style.position = "relative";
+
+		this.domElement = document.createElement("canvas");
+		this.domElement.width = 1000;
+		this.domElement.height = 1000;
+		this.domElement.style.borderWidth = "10px";
+		this.domElement.style.borderStyle = "outset";
+		this.domElement.style.width = "95%";
+
+		this.domButtonUpElement = document.createElement("button");
+		this.domButtonUpElement.innerHTML = "Uncover";
+		//this.domButtonUpElement.style.position = "absolute";
+		//this.domButtonUpElement.style.left = 0;
+		this.domButtonUpElement.style.zIndex = 10;
+		this.domButtonUpElement.style.float = "left";
+		this.domButtonUpElement.className ="btn btn-primary"
+		this.domButtonUpElement.addEventListener("click",function() {
+			this.board.forEach((p) => {
+				if(p != null) p.src = p.src1;
+			});
+		}.bind(this));
+		
+		this.domButtonBackElement = document.createElement("button");
+		this.domButtonBackElement.innerHTML = "Hide";
+		//this.domButtonBackElement.style.position = "absolute";
+		//this.domButtonBackElement.style.right = 0;
+		this.domButtonBackElement.style.zIndex = 10;
+		this.domButtonBackElement.style.float = "left";
+		this.domButtonBackElement.className ="btn btn-primary"
+		this.domButtonBackElement.addEventListener("click",function() {
+			this.board.forEach((p) => {
+				if(p != null) p.src = p.src2;
+			});
+		}.bind(this));
+
+
+		this.domButtonLockElement = document.createElement("input");
+		this.domButtonLockElement.type = "checkbox";
+		this.domButtonLockElement.role = "switch";
+		this.domButtonLockElement.className ="form-check-input"
+		this.domButtonLockDivElement = document.createElement("div");
+		this.domButtonLockDivElement.type = "checkbox";
+		this.domButtonLockDivElement.role = "switch";
+		this.domButtonLockDivElement.className ="form-check form-switch"
+		//this.domButtonLockDivElement.style.position = "absolute";
+		//this.domButtonLockDivElement.style.left = "65%";
+		this.domButtonLockDivElement.style.zIndex = 10;
+		this.domButtonLockDivElement.style.float = "left";
+		this.domButtonLockDivElement.appendChild(this.domButtonLockElement);
+		
+		this.domButtonResetElement = document.createElement("button");
+		this.domButtonResetElement.innerHTML = "Reset";
+		//this.domButtonResetElement.style.position = "absolute";
+		//this.domButtonResetElement.style.left = "35%";
+		this.domButtonResetElement.style.zIndex = 10;
+		this.domButtonResetElement.style.float = "left";
+		this.domButtonResetElement.className ="btn btn-primary"
+		this.domButtonResetElement.addEventListener("click",function() {
+			boards.forEach((b) => {
+				b.board.forEach((p,i) => {
+					if(p != null) if(p.board == this) b.board[i] = null;
+				});
+			});
+			boards.forEach((b) => {
+				b.render();
+			});
+			this.reset();
+			this.initCards();
+		}.bind(this));
+
+		this.domDiv.appendChild(this.domButtonUpElement);
+		this.domDiv.appendChild(this.domButtonResetElement);
+		this.domDiv.appendChild(this.domButtonLockDivElement);
+		this.domDiv.appendChild(this.domButtonBackElement);
+		this.domDiv.appendChild(this.domElement);
+		
+		this.domElement.addEventListener("mouseout",((evt) => {
+			this.mousex = -1;
+			this.mousey = -1;
+			this.render();
+		}).bind(this));
+		
+		this.domElement.addEventListener("click",this.domElementClick.bind(this));
+		//this.domElement.addEventListener("mousemove",xMouseMove);
+		
+		this.domElement.addEventListener("mousemove",((evt) => {
+			if(x != null) {
+				x.style.top = evt.pageY - Math.round(x.offsetHeight / 2);
+				x.style.left = evt.pageX - Math.round(x.offsetWidth / 2);
+			}
+		
+			var cv = this.domElement;
+			var xy = getOffset(cv);
+			
+			this.mousex = Math.floor((evt.offsetX + 10) * this.w / cv.offsetWidth);
+			this.mousey = Math.floor((evt.offsetY + 10) * this.h / cv.offsetHeight);
+
+			if(this.mousex > this.w - 1) this.mousex = - 1;
+			if(this.mousey > this.h - 1) this.mousey = - 1;
+					
+			if(!this.board[this.mousex + this.w * this.mousey]) { // || (this.board[this.mousex + this.w * this.mousey].color != this.board.color && !this.team())) {
+				this.mousex = -1;
+				this.mousey = -1;
+				this.domElement.title = "";
+			} else {
+				let z = this.board[this.mousex + this.w * this.mousey];
+				let p = /[/][^/]+[.](jpg|png|gif)/;
+				if(z.src.substr(z.src.search(p)) == z.src1.substr(z.src1.search(p)))
+					this.domElement.title = z.title0;
+				else
+					this.domElement.title = "";
+			}
+
+			
+			this.render();
+		}).bind(this));
+		//this.domElement.addEventListener("mousemove",xMouseMove);
+		
+		boards.push(this);
+		
+		this.lastx = -1;
+		this.lasty = -1;
+		
+		this.reset();
+		this.initCards();
+	}
+
+	initCards() {
+		this.board.forEach((p) => {
+			if(p != null) {
+				p.board = this;
+				p.onload = this.render.bind(this);
+			}
+		});
+	}
+	
+	render() {
+		var cv = this.domElement;
+		var ctx = cv.getContext("2d");
+		
+		ctx.fillStyle = "black";
+		ctx.fillRect(0,0,cv.width,cv.height);
+		
+		var c = 0;
+		for(var i = 0;i < this.w;++i) {
+			var c2 = c;
+			for(var j = 0;j < this.h;++j) {
+				ctx.fillStyle = c2 ? "darkgray" : "lightgray";
+				ctx.fillRect(i * cv.width / this.w,j * cv.height / this.h,cv.width / this.w,cv.height / this.h);
+				c2 = 1 - c2;
+			}
+			c = 1 - c;
+		}
+		
+		for(var i = 0;i < this.w;++i) {
+			for(var j = 0;j < this.h;++j) {
+				if(this.board[i + this.w * j] != null) {
+					ctx.drawImage(this.board[i + this.w * j],i * cv.width / this.w,j * cv.height / this.h,cv.width / this.w,cv.height / this.h);
+				}
+			}
+		}
+
+		if(this.mousex >= 0 && this.mousey >= 0) {
+			ctx.strokeStyle = "green"
+			ctx.lineWidth = 100 / this.w * cv.width / cv.offsetWidth;
+			
+			ctx.beginPath();
+			ctx.rect(this.mousex * cv.width / this.w,this.mousey * cv.height / this.h,cv.width / this.w,cv.height / this.h);
+			ctx.stroke();
+		}
+		
+		if(this.lastx >= 0 && this.lasty >= 0) {
+			ctx.strokeStyle = "pink"
+			ctx.lineWidth = 100 / this.w * cv.width / cv.offsetWidth;
+			
+			ctx.beginPath();
+			ctx.rect(this.lastx * cv.width / this.w,this.lasty * cv.height / this.h,cv.width / this.w,cv.height / this.h);
+			ctx.stroke();
+		}
+	}
+}
+
+class EmptyBoard extends Board { 
+	reset() {
+		this.w = 20;
+		this.h = 5;
+
+		this.domElement.width = this.w * 100;
+		this.domElement.height = this.h * 100;
+		
+		this.board = [];
+		for(var i = 0;i < this.w * this.h;++i) this.board.push(null);
+		
+		this.render();
+	}
+}
+
+
+class ChessBoard extends Board { 
+	reset() {
+		this.w = this.h = 8;
+	
+		this.board = [];
+		for(var i = 0;i < 64;++i) this.board.push(null);
+		
+		this.board[0] = this.loadPiece("rook","rdd129","black");
+		this.board[1] = this.loadPiece("knight","ndd129","black");
+		this.board[2] = this.loadPiece("bishop","bdd129","black");
+		this.board[3] = this.loadPiece("queen","qdd129","black");
+		this.board[4] = this.loadPiece("king","kdd129","black");
+		this.board[5] = this.loadPiece("bishop","bdd129","black");
+		this.board[6] = this.loadPiece("knight","ndd129","black");
+		this.board[7] = this.loadPiece("rook","rdd129","black");
+		
+		for(var i = 0;i < 8;++i) this.board[8 + i] = this.loadPiece("pawn","pdd129","black");
+		
+		this.board[56] = this.loadPiece("rook","rld129","white");
+		this.board[57] = this.loadPiece("knight","nld129","white");
+		this.board[58] = this.loadPiece("bishop","bld129","white");
+		this.board[59] = this.loadPiece("queen","qld129","white");
+		this.board[60] = this.loadPiece("king","kld129","white");
+		this.board[61] = this.loadPiece("bishop","bld129","white");
+		this.board[62] = this.loadPiece("knight","nld129","white");
+		this.board[63] = this.loadPiece("rook","rld129","white");
+		
+		for(var i = 0;i < 8;++i) this.board[48 + i] = this.loadPiece("pawn","pld129","white");
+	}
+	
+	blitzschach() {
+		this.board = [];
+		for(var i = 0;i < 64;++i) this.board.push(null);
+		
+		this.board[0] = this.loadPiece("rook","rdd129","black");
+		this.board[1] = this.loadPiece("knight","ndd129","black");
+		this.board[2] = this.loadPiece("bishop","bdd129","black");
+		this.board[3] = this.loadPiece("queen","qdd129","black");
+		this.board[4] = this.loadPiece("king","kdd129","black");
+		this.board[5] = this.loadPiece("bishop","bdd129","black");
+		this.board[6] = this.loadPiece("knight","ndd129","black");
+		this.board[7] = this.loadPiece("rook","rdd129","black");
+		
+		for(var i = 0;i < 8;++i) this.board[8 + i] = this.loadPiece("pawn","pld129","white");
+		
+		this.board[56] = this.loadPiece("rook","rld129","white");
+		this.board[57] = this.loadPiece("knight","nld129","white");
+		this.board[58] = this.loadPiece("bishop","bld129","white");
+		this.board[59] = this.loadPiece("queen","qld129","white");
+		this.board[60] = this.loadPiece("king","kld129","white");
+		this.board[61] = this.loadPiece("bishop","bld129","white");
+		this.board[62] = this.loadPiece("knight","nld129","white");
+		this.board[63] = this.loadPiece("rook","rld129","white");
+		
+		for(var i = 0;i < 8;++i) this.board[48 + i] = this.loadPiece("pawn","pdd129","black");
+		
+		this.board[11] = this.loadPiece("pawn","pdd129","black");
+		this.board[13] = this.loadPiece("pawn","pdd129","black");
+		this.board[51] = this.loadPiece("pawn","pld129","white");
+		this.board[53] = this.loadPiece("pawn","pld129","white");
+		
+		this.initCards();
+		this.render();
+	}
+
+	persianroulette() {
+		this.reset();
+		
+		this.board[27] = this.board[3];
+		this.board[28] = this.board[4];
+		this.board[3] = null;
+		this.board[4] = null;
+		
+		this.board[36] = this.board[59];
+		this.board[35] = this.board[60];
+		this.board[59] = null;
+		this.board[60] = null;
+		
+		/*this.board = [];
+		for(var i = 0;i < 64;++i) this.board.push(null);
+		
+		this.board[2] = this.loadPiece("rook","rdd129","black");
+		this.board[0] = this.loadPiece("knight","ndd129","black");
+		this.board[1] = this.loadPiece("bishop","bdd129","black");
+		this.board[27] = this.loadPiece("queen","qdd129","black");
+		this.board[28] = this.loadPiece("king","kdd129","black");
+		this.board[6] = this.loadPiece("bishop","bdd129","black");
+		this.board[7] = this.loadPiece("knight","ndd129","black");
+		this.board[5] = this.loadPiece("rook","rdd129","black");
+		
+		for(var i = 0;i < 8;++i) this.board[8 + i] = this.loadPiece("pawn","pdd129","black");
+		
+		this.board[58] = this.loadPiece("rook","rld129","white");
+		this.board[56] = this.loadPiece("knight","nld129","white");
+		this.board[57] = this.loadPiece("bishop","bld129","white");
+		this.board[36] = this.loadPiece("queen","qld129","white");
+		this.board[35] = this.loadPiece("king","kld129","white");
+		this.board[62] = this.loadPiece("bishop","bld129","white");
+		this.board[63] = this.loadPiece("knight","nld129","white");
+		this.board[61] = this.loadPiece("rook","rld129","white");
+		
+		for(var i = 0;i < 8;++i) this.board[48 + i] = this.loadPiece("pawn","pld129","white");*/
+
+		this.initCards();
+		this.render();
+	}
+
+
+	loadPiece(name,imgName,color) {
+		var y = {};
+		
+		if(typeof document !== "undefined") y = document.createElement("img");
+		y.src1 = "img/" + imgName + ".png";
+		y.src2 = "img/back02.jpg";
+		y.src = y.src2;
+		y.shape = name;
+		y.color = color;
+		
+		return y;
+	}
+}
+
+class DiceSet extends Board {
+	reset() {
+		this.w = this.h = 5;
+		this.board = [];
+		
+		for(let i = 1;i <= this.w * this.h;++i) {
+			let y = document.createElement("img");
+			y.src1 = "img/Alea_" + Math.trunc(6 * Math.random() + 1) + ".png";
+			y.src2 = "img/back03.png";
+			y.src = y.src2;
+			y.index = i;
+			this.board.push(y);
+		}
+	}
+}
+
+function shuffle(xs) {
+	var ys = [];
+	
+	while(xs.length > 0) {
+		var i = Math.round(Math.random() * (xs.length - 1));
+		ys.push(xs[i]);
+		xs.splice(i,1);
+	}
+	
+	return ys;
+}
+
+class CardSet extends Board {
+	reset() {
+		this.w = 8;
+		this.h = 7;
+	
+		let xs = ["d","h","s","c"];
+		let ys = [0,1,10,11];
+		this.board = [];
+		
+		xs.forEach((c,j) => {
+			for(let i = 1;i <= 13;++i) {
+				let y = document.createElement("img");
+				y.src1 = "img/" + (i <= 9 ? "0" : "") + i + c + ".gif";
+				y.src2 = "img/back01.gif";
+				y.src = y.src2;
+				y.color = c;
+				y.index = i;
+				y.title0 = "Letter / Buchstabe : " + String.fromCharCode(64 + i + ys[j]);
+				this.board.push(y);
+			}
+		});
+		
+		this.board = shuffle(this.board);
+	}
+}
+
+class RWTarotCardSet extends Board {
+	reset() {
+		this.w = this.h = 9;
+	
+		this.board = [];
+		
+		for(let i = 1;i <= 78;++i) {
+			let y = document.createElement("img");
+			y.src1 = "img/tarot_rw_" + i + ".jpg";
+			y.src2 = "img/back04.jpg";
+			y.src = y.src2;
+			y.index = i;
+			this.board.push(y);
+		}
+		
+		this.board = shuffle(this.board);
+	}
+}
+
+class KieferTarotCardSet extends Board {
+	load(fn,i) {
+			let y = document.createElement("img");
+			y.src1 = "img/" + fn + ".png";
+			y.src2 = "img/back05.png";
+			y.src = y.src2;
+			y.index = i;
+			this.board.push(y);
+	}
+	
+	reset() {
+		this.w = this.h = 4;
+	
+		this.board = [];
+		
+		this.load("contra");
+		this.load("pro");
+		this.load("erziehung");
+		this.load("zugehörigkeit");
+		this.load("zusammenführung");
+		this.load("widerstand");
+		this.load("punkt");
+		this.load("zahl");
+		this.load("echo");
+		this.load("sympathie");
+		this.load("filter");
+		this.load("horizont");
+		this.load("stop");
+		this.load("umlauf");
+		this.load("umbau");
+		this.load("verzweigung");
+				
+		this.board = shuffle(this.board);
+	}
+}
+
+let cb = new ChessBoard();
+document.getElementById("abc").appendChild(cb.domDiv);
+cb.domDiv.style.width = "19%";
+cb.domDiv.style.float = "left";
+
+let cs = new CardSet();
+document.getElementById("abc").appendChild(cs.domDiv);
+cs.domDiv.style.width = "19%";
+cs.domDiv.style.float = "left";
+
+let ds = new DiceSet();
+document.getElementById("abc").appendChild(ds.domDiv);
+ds.domDiv.style.width = "19%";
+ds.domDiv.style.float = "left";
+
+let tcs = new RWTarotCardSet();
+document.getElementById("abc").appendChild(tcs.domDiv);
+tcs.domDiv.style.width = "19%";
+tcs.domDiv.style.float = "left";
+
+let ktcs = new KieferTarotCardSet();
+document.getElementById("abc").appendChild(ktcs.domDiv);
+ktcs.domDiv.style.width = "19%";
+ktcs.domDiv.style.float = "left";
+
+let eb = new EmptyBoard();
+document.getElementById("abc").appendChild(eb.domDiv);
+eb.domDiv.style.height = "30%";
+eb.domDiv.style.float = "left";
+	
+	
+function wuerfelAbraeumen() {
+	for(let i = 0;i < 20;++i) {
+		let x = cs.board[i];
+		eb.board[80 + i] = x;
+		x.onload = eb.render.bind(eb);
+		cs.board[i] = null;
+	}
+	
+	for(let i = 0;i < ds.board.length;++i) {
+		let x = ds.board[i];
+		eb.board[40 + i] = x;
+		x.onload = eb.render.bind(eb);
+		ds.board[i] = null;
+	}
+	
+	ds.render();
+	eb.render();
+	cs.render();
+}
+
+</script>
+	</div>
+	
+	<fieldset style="border-style:groove;width:15%;position:absolute">
+		<legend>Games</legend>
+		<ol>
+			<button onclick="cb.blitzschach()">Biltzschach</button>
+			<button onclick="cb.persianroulette()">PersianRoulette</button>
+			<button onclick="wuerfelAbraeumen()">WuerfelAbraeumen</button>
+		</ol>
+	</fieldset>
+	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
+
+</body>
+</html>
+
