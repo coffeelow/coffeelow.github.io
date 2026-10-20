@@ -398,7 +398,7 @@ let waves = [instrument]
 
         //Begleitung
 
-    	for(let i = 0;i < 10;++i) {
+    	for(let i = 0;i < 5;++i) {
        ins = new Instrument(-12,"cv1",wave,selectrandom(waves));
 
 	        ms.push(new Melody(2,ins));
@@ -406,7 +406,7 @@ let waves = [instrument]
 
 
         //Sound
-    		for( let i = 0; i < 10;++i) {
+    		for( let i = 0; i < 5;++i) {
         ins = new Instrument(0,"cv11",wave,selectrandom(waves));
 
 	        ms.push(new Melody(1,ins));
@@ -414,7 +414,7 @@ let waves = [instrument]
 
 
         //Bongos
-    			for(let i = 0;i < 20;++i) {
+    			for(let i = 0;i < 10;++i) {
         ins = new Instrument(0,"cv111",wave,percussion);
 
 	        ms.push(new Melody(1,ins));
@@ -438,7 +438,7 @@ let waves = [instrument]
 
 				for(let k = 0;k < cnt;++k) {
 					if(m.i < frameCount) {
-						if(Math.random() < 0.25) m.play(myArrayBuffer,m.i);
+						if(Math.random() < 0.5) m.play(myArrayBuffer,m.i);
 						m.i += Math.round(2 * speed * m.stepSize * audioCtx.sampleRate / cnt)
 					} else
 						m.i = frameCount;
@@ -472,14 +472,16 @@ async function sound() {
   for(let i = 0;i < n;++i) {
     let tn = tone + 12 * i
       let freq = 440.0 * Math.pow(2.0, tn / 12.0);
-      if(rands[3 + i] < rands[2])
-         y += a * Math.sin(freq * t * pi2)
+      let y0 = 0
+      if(rands[3 + i * 3] < rands[2])
+         y0 = a * Math.sin(freq * t * pi2)
       else
-         y += a * Math.sign(Math.sin(freq * t * pi2))
+         y0 = a * Math.sign(Math.sin(freq * t * pi2))
+      y += y0  * (-Math.atan((t - duration) * 40 * (0.9 * rands[3 + i * 3 + 1] + 0.1)) + Math.PI / 2) * (Math.atan((t - 0.01) * 40 * (0.9 * rands[3 + i * 3 + 2] + 0.1)) + Math.PI / 2)
       a *= rands[2]
      }
      
-    return  y * (-Math.atan((t - duration) * 40 * rands[0]) + Math.PI / 2) * (Math.atan((t - 0.01) * 40 * rands[0]) + Math.PI / 2)
+    return  y
  
     }).setOutput([audioCtx.sampleRate]);
 
