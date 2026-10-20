@@ -414,7 +414,7 @@ let waves = [instrument]
 
 
         //Bongos
-    			for(let i = 0;i < 10;++i) {
+    			for(let i = 0;i < 5;++i) {
         ins = new Instrument(0,"cv111",wave,percussion);
 
 	        ms.push(new Melody(1,ins));
@@ -493,7 +493,7 @@ async function sound() {
   let pi2 = 6.283185307179586;
     let tn = (tone + 36) % 12 - 12
       let freq = 440.0 * Math.pow(2.0, tn / 12.0);
-    return Math.sin(freq * t * pi2) * (-Math.atan((t - duration) * 40 * rands[0]) + Math.PI / 2) * (Math.atan((t - 0.01) * 40 * rands[0]) + Math.PI / 2)
+    return Math.sin(freq * t * pi2) * (-Math.atan((t - duration) * 40 * rands[1]) + Math.PI / 2) * (Math.atan((t - 0.01) * 40 * rands[0]) + Math.PI / 2)
  
 }).setOutput([audioCtx.sampleRate]);
 
