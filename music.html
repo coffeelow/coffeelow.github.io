@@ -57,7 +57,13 @@ i € O(&lt; 0)
 	<!--<script src="fractalfrandom.js"></script>-->
 	<script>
 
-
+var seed = (new Date()).getTime() % 32000;
+/*
+function random() {
+    var x = Math.sin(seed++) * 10000;
+    return x - Math.floor(x);
+}
+*/
 
 
 //for(let i = 0;i < 10000;++i) Math.random()
@@ -217,7 +223,7 @@ render(buffer,offset,tone,duration,vol) {
 	for(var channel = 0; channel < channels; channel++) {
 	var nowBuffering = buffer.getChannelData(channel);
 	var xs = this.wave(audioCtx.sampleRate,this.tone + tone,this.rands,duration,this.waveGPU)
-	for(let i = 0;i < xs.length;++i) if(i + offset + n < nowBuffering.length) nowBuffering[i + offset + n] += xs[i] * 0.4 * vol * this.chVols[channel];
+	for(let i = 0;i < xs.length;++i) if(i + offset + n < nowBuffering.length) nowBuffering[i + offset + n] += xs[i] * 0.1 * vol * this.chVols[channel];
 }
 }
 }
@@ -374,6 +380,14 @@ async function play() {
 
 function make() {
     if(taken) {
+        if(myArrayBuffer) {
+            seed = 0;
+            let cd = myArrayBuffer.getChannelData(0)
+            for(let i = 0;i < cd.length;++i) {
+                seed ^= Math.round((cd[i] + 1) * 64000);
+            }
+        }
+        
         frameCount = audioCtx.sampleRate * seconds
         myArrayBuffer = audioCtx.createBuffer(channels, frameCount, audioCtx.sampleRate);
         speed = 0.175 + Math.random() * 0.11
@@ -458,7 +472,10 @@ async function sound() {
   for(let i = 0;i < n;++i) {
     let tn = tone + 12 * i
       let freq = 440.0 * Math.pow(2.0, tn / 12.0);
-      y += a * Math.sin(freq * t * pi2)
+      if(rands[3 + i] < rands[2])
+         y += a * Math.sin(freq * t * pi2)
+      else
+         y += a * Math.sign(Math.sin(freq * t * pi2))
       a *= rands[2]
      }
      
