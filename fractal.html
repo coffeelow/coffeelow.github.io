@@ -60,10 +60,10 @@
                 <span>New Formula</span>
             </button>
 
-            <!-- Auto Cycle Toggle -->
-            <button id="btn-autocycle" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-xs md:text-sm px-3 py-2 rounded-lg border border-slate-700 transition-all flex items-center gap-1.5">
-                <span id="cycle-dot" class="w-2 h-2 rounded-full bg-emerald-400"></span>
-                <span id="cycle-text">Auto: ON (3s)</span>
+            <!-- Auto Cycle Toggle (OFF by default) -->
+            <button id="btn-autocycle" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-xs md:text-sm px-3 py-2 rounded-lg border border-slate-700 transition-all flex items-center gap-1.5 border-rose-500/50">
+                <span id="cycle-dot" class="w-2 h-2 rounded-full bg-slate-500"></span>
+                <span id="cycle-text">Auto: PAUSED</span>
             </button>
 
             <!-- Reset View -->
@@ -119,13 +119,14 @@
             }
         `;
 
-        // GLSL Header with complex math helper functions
+        // GLSL Header with complex math helper functions & morphing dynamic parameters
         const glslHeader = `
             precision highp float;
             uniform vec2 u_resolution;
             uniform vec2 u_bounds_x; // minx, maxx
             uniform vec2 u_bounds_y; // miny, maxy
             uniform int u_palette;
+            uniform float u_time;
 
             // Complex Addition
             vec2 complexADD(vec2 a, vec2 b) {
@@ -241,11 +242,17 @@
                 return out;
             }
 
+            // Morphing random complex values oscillating smooth over time
             complexRandom() {
                 let out = this.nextVar();
-                let rx = ((Math.random() - 0.5) * 20.0).toFixed(4);
-                let ry = ((Math.random() - 0.5) * 20.0).toFixed(4);
-                this.body += `    vec2 ${out} = vec2(${rx}, ${ry});\n`;
+                let baseRx = ((Math.random() - 0.5) * 10.0).toFixed(4);
+                let baseRy = ((Math.random() - 0.5) * 10.0).toFixed(4);
+                // Reduced speed factor range by half (0.1 - 0.5) for slower morphing
+                let speed = (0.1 + Math.random() * 0.4).toFixed(3);
+                let phase = (Math.random() * 6.2831).toFixed(3);
+                
+                // Animated vector variable morphing continuously
+                this.body += `    vec2 ${out} = vec2(${baseRx} * sin(u_time * ${speed} + ${phase}), ${baseRy} * cos(u_time * ${speed} + ${phase}));\n`;
                 return out;
             }
 
@@ -294,16 +301,17 @@
         const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
 
         if (!gl) {
-            alert("WebGL is not supported in your browser.");
+            console.error("WebGL is not supported in your browser.");
         }
 
         // Viewport complex plane bounds
         let minx = -10.0, maxx = 10.0, miny = -10.0, maxy = 10.0;
         let selectedPalette = 0;
-        let autoCycle = true;
+        let autoCycle = false; // Disabled auto-cycle by default
         let autoCycleInterval = null;
         let currentProgram = null;
         let currentShaderSource = "";
+        let startTime = performance.now();
 
         // UI elements
         const btnGenerate = document.getElementById("btn-generate");
@@ -402,44 +410,47 @@
                 currentProgram = newProgram;
                 currentShaderSource = fractalFuncSource;
                 codePreview.textContent = fractalFuncSource;
-                requestAnimationFrame(render);
             }
         }
 
-        // --- Rendering Loop ---
-        function render() {
-            if (!currentProgram) return;
+        // --- Continuous Animation Loop ---
+        function render(now) {
+            if (currentProgram) {
+                // Resize Canvas to Viewport
+                if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
+                    canvas.width = window.innerWidth;
+                    canvas.height = window.innerHeight;
+                    gl.viewport(0, 0, canvas.width, canvas.height);
+                }
 
-            // Resize Canvas to Viewport
-            if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
-                canvas.width = window.innerWidth;
-                canvas.height = window.innerHeight;
-                gl.viewport(0, 0, canvas.width, canvas.height);
+                gl.useProgram(currentProgram);
+
+                // Bind Quad Position
+                const positionLocation = gl.getAttribLocation(currentProgram, "a_position");
+                gl.enableVertexAttribArray(positionLocation);
+                gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+                gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+                // Set Uniforms - Scaled time down by half (0.5x multiplier)
+                const elapsedTime = (now - startTime) * 0.0005;
+                gl.uniform1f(gl.getUniformLocation(currentProgram, "u_time"), elapsedTime);
+                gl.uniform2f(gl.getUniformLocation(currentProgram, "u_resolution"), canvas.width, canvas.height);
+                gl.uniform2f(gl.getUniformLocation(currentProgram, "u_bounds_x"), minx, maxx);
+                gl.uniform2f(gl.getUniformLocation(currentProgram, "u_bounds_y"), miny, maxy);
+                gl.uniform1i(gl.getUniformLocation(currentProgram, "u_palette"), selectedPalette);
+
+                // Draw
+                gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+                // Update UI Labels
+                const centerX = ((minx + maxx) / 2).toFixed(2);
+                const centerY = ((miny + maxy) / 2).toFixed(2);
+                const zoomVal = (20.0 / (maxx - minx)).toFixed(2);
+                lblCenter.textContent = `${centerX}, ${centerY}`;
+                lblZoom.textContent = `${zoomVal}x`;
             }
 
-            gl.useProgram(currentProgram);
-
-            // Bind Quad Position
-            const positionLocation = gl.getAttribLocation(currentProgram, "a_position");
-            gl.enableVertexAttribArray(positionLocation);
-            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-            gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
-
-            // Set Uniforms
-            gl.uniform2f(gl.getUniformLocation(currentProgram, "u_resolution"), canvas.width, canvas.height);
-            gl.uniform2f(gl.getUniformLocation(currentProgram, "u_bounds_x"), minx, maxx);
-            gl.uniform2f(gl.getUniformLocation(currentProgram, "u_bounds_y"), miny, maxy);
-            gl.uniform1i(gl.getUniformLocation(currentProgram, "u_palette"), selectedPalette);
-
-            // Draw
-            gl.drawArrays(gl.TRIANGLES, 0, 6);
-
-            // Update UI Labels
-            const centerX = ((minx + maxx) / 2).toFixed(2);
-            const centerY = ((miny + maxy) / 2).toFixed(2);
-            const zoomVal = (20.0 / (maxx - minx)).toFixed(2);
-            lblCenter.textContent = `${centerX}, ${centerY}`;
-            lblZoom.textContent = `${zoomVal}x`;
+            requestAnimationFrame(render);
         }
 
         // --- Interactive Mouse Controls (Pan & Zoom) ---
@@ -476,8 +487,6 @@
             maxx -= deltaX;
             miny += deltaY;
             maxy += deltaY;
-
-            requestAnimationFrame(render);
         });
 
         canvas.addEventListener("wheel", (e) => {
@@ -497,8 +506,6 @@
             maxx = cursorX + (maxx - cursorX) * zoomFactor;
             miny = cursorY + (miny - cursorY) * zoomFactor;
             maxy = cursorY + (maxy - cursorY) * zoomFactor;
-
-            requestAnimationFrame(render);
         }, { passive: false });
 
         // Touch support for mobile pan
@@ -524,12 +531,10 @@
                 maxx -= (dx / canvas.width) * spanX;
                 miny += (dy / canvas.height) * spanY;
                 maxy += (dy / canvas.height) * spanY;
-
-                requestAnimationFrame(render);
             }
         });
 
-        // --- Auto Regeneration Timer ---
+        // --- Auto Regeneration Timer (Optional) ---
         function setupAutoCycle() {
             if (autoCycleInterval) clearInterval(autoCycleInterval);
             if (autoCycle) {
@@ -563,12 +568,10 @@
             maxx = 10.0;
             miny = -10.0;
             maxy = 10.0;
-            requestAnimationFrame(render);
         });
 
         paletteSelect.addEventListener("change", (e) => {
             selectedPalette = parseInt(e.target.value, 10);
-            requestAnimationFrame(render);
         });
 
         // Code Inspector Drawer
@@ -590,7 +593,6 @@
         btnCloseCode.addEventListener("click", () => toggleDrawer(false));
 
         btnCopyCode.addEventListener("click", () => {
-            // Using standard execCommand copy fallback
             const textarea = document.createElement("textarea");
             textarea.value = currentShaderSource;
             document.body.appendChild(textarea);
@@ -604,14 +606,11 @@
             }, 1800);
         });
 
-        window.addEventListener("resize", () => {
-            requestAnimationFrame(render);
-        });
-
         // Initialize App
         window.onload = () => {
             buildNewFractalShader();
             setupAutoCycle();
+            requestAnimationFrame(render);
         };
     </script>
 </body>
