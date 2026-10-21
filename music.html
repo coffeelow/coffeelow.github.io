@@ -257,7 +257,7 @@ render(buffer,offset,tone,duration,vol) {
 	const channels = 2;
 	for(var channel = 0; channel < channels; channel++) {
 	var nowBuffering = buffer.getChannelData(channel);
-	var xs = this.wave(audioCtx.sampleRate,this.tone + tone,this.rands,duration,this.waveGPU)
+	var xs = this.wave(audioCtx.sampleRate / 2,this.tone + tone,this.rands,duration,this.waveGPU)
 	for(let i = 0;i < xs.length;++i) if(i + offset + n < nowBuffering.length) nowBuffering[i + offset + n] += xs[i] * 0.1 * vol * this.chVols[channel];
 }
 }
@@ -519,7 +519,7 @@ async function sound() {
      
     return  y
  
-    }).setOutput([audioCtx.sampleRate]);
+    }).setOutput([audioCtx.sampleRate / 2]);
 
 
 
@@ -543,7 +543,7 @@ async function sound() {
      }
      
     return  y 
-}).setOutput([audioCtx.sampleRate]);
+}).setOutput([audioCtx.sampleRate / 2]);
 
 
 
