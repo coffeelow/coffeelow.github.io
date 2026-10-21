@@ -55,8 +55,12 @@ O € O(1)
 i € O(&lt; 0)
 	</pre>
 	<script>
+	
+	
+// Ur-Zufall sichern, bevor wir Math.random überschreiben
+const nativeRandom = Math.random;
 
-let cachedRandomSeed = null;
+let cachedRandomSeed = Math.floor(nativeRandom() * 233280);
 
 Math.random = function() {
     if (cachedRandomSeed === null) {
@@ -67,18 +71,22 @@ Math.random = function() {
                 seed ^= Math.round((cd[i] + 1) * 64000);
             }
         }
-        cachedRandomSeed = (seed * 9301 + 49297) % 233280;
+        cachedRandomSeed = Math.abs(seed * 9301 + 49297) % 233280;
     }
     
-    // Linear Congruential Generator (LCG) to advance state per call without recalculating the buffer
+    // Linear Congruential Generator (LCG)
     cachedRandomSeed = (cachedRandomSeed * 9301 + 49297) % 233280;
     return cachedRandomSeed / 233280;
 };
 
-// Reset cache when a new track/buffer is created or played
+// Berechnet den Seed neu aus dem Audiobuffer, sobald der Track abgespielt wird
 function resetRandomSeed() {
     cachedRandomSeed = null;
 }
+
+
+
+
 
 
 function initGPU() {
@@ -379,6 +387,7 @@ async function play() {
         source.start()
         playing = true
         taken = true
+		resetRandomSeed()
     }
 
     window.setTimeout(play,100)
@@ -392,9 +401,9 @@ async function play() {
 
 
 function make() {
-    if(taken) {
-		resetRandomSeed()
-		 
+    if(taken) {		 
+    	cachedRandomSeed = Math.floor(nativeRandom() * 233280);
+    
         frameCount = audioCtx.sampleRate * seconds
         myArrayBuffer = audioCtx.createBuffer(channels, frameCount, audioCtx.sampleRate);
         speed = 0.175 + Math.random() * 0.11
