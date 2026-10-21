@@ -1,170 +1,618 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic GLSL Fractal Generator</title>
+    <!-- Tailwind CSS for UI overlay -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #0f172a;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            cursor: grab;
+        }
+        canvas:active {
+            cursor: grabbing;
+        }
+        /* Custom scrollbar for shader code preview */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 3px;
+        }
+    </style>
 </head>
-<body>
-    <canvas id="x" style="width:90%;height:90vh"></canvas>
-<script>
-    class FunctionGenerator {
-        constructor() {
-            this.string = "function fractal(z0) {let zs = [];for(let i = 0;i < 1000;++i) zs.push([0,0]);";
-            this.i = 0;
-        }
-        
-        complexADD(a, b) {
-            let out = this.i++;
-            this.string += "zs[" + out + "][0] = zs[" + a + "][0] + zs[" + b + "][0];";
-            this.string += "zs[" + out + "][1] = zs[" + a + "][1] + zs[" + b + "][1];";
-            return out;
-        }
+<body class="select-none text-slate-100">
 
-        complexSUB(a, b) {
-            let out = this.i++;
-            this.string += "zs[" + out + "][0] = zs[" + a + "][0] - zs[" + b + "][0];";
-            this.string += "zs[" + out + "][1] = zs[" + a + "][1] - zs[" + b + "][1];";
-            return out;
-        }
+    <!-- WebGL Canvas -->
+    <canvas id="x"></canvas>
 
-        complexMUL(a, b) {
-            let out = this.i++;
-            this.string += "zs[" + out + "][0] = zs[" + a + "][0] * zs[" + b + "][0] - zs[" + a + "][1] * zs[" + b + "][1];";
-            this.string += "zs[" + out + "][1] = zs[" + a + "][0] * zs[" + b + "][1] + zs[" + a + "][1] * zs[" + b + "][0];";
-            return out;
-        }
+    <!-- Floating Header / Control Panel -->
+    <div class="fixed top-4 left-4 right-4 flex flex-wrap items-center justify-between gap-3 pointer-events-none z-10">
+        <!-- Brand & Title -->
+        <div class="bg-slate-900/80 backdrop-blur-md border border-slate-800 p-3 px-4 rounded-xl shadow-2xl pointer-events-auto flex items-center gap-3">
+            <div class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></div>
+            <h1 class="font-bold text-base md:text-lg tracking-wide text-emerald-400">WebGL Dynamic Fractal Generator</h1>
+        </div>
 
-        complexDIV(a, b) {
-            let out = this.i++;
-            this.string += "let denom_" + out + " = zs[" + b + "][0] * zs[" + b + "][0] + zs[" + b + "][1] * zs[" + b + "][1];";
-            this.string += "if (denom_" + out + " === 0) denom_" + out + " = 0.00001;";
-            this.string += "zs[" + out + "][0] = (zs[" + a + "][0] * zs[" + b + "][0] + zs[" + a + "][1] * zs[" + b + "][1]) / denom_" + out + ";";
-            this.string += "zs[" + out + "][1] = (zs[" + a + "][1] * zs[" + b + "][0] - zs[" + a + "][0] * zs[" + b + "][1]) / denom_" + out + ";";
-            return out;
-        }
+        <!-- Controls Toolbar -->
+        <div class="bg-slate-900/80 backdrop-blur-md border border-slate-800 p-2 rounded-xl shadow-2xl pointer-events-auto flex items-center gap-2 flex-wrap">
+            <!-- Generate Button -->
+            <button id="btn-generate" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs md:text-sm px-3 py-2 rounded-lg transition-all shadow hover:shadow-emerald-500/20 active:scale-95 flex items-center gap-1.5">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                <span>New Formula</span>
+            </button>
 
-        complexPOW(a, b) {
-            let out = this.i++;
-            this.string += "let r_" + out + " = Math.sqrt(zs[" + a + "][0] * zs[" + a + "][0] + zs[" + a + "][1] * zs[" + a + "][1]);";
-            this.string += "let theta_" + out + " = Math.atan2(zs[" + a + "][1], zs[" + a + "][0]);";
-            this.string += "let logr_" + out + " = Math.log(r_" + out + " > 0 ? r_" + out + " : 0.00001);";
-            this.string += "let bx_" + out + " = zs[" + b + "][0], by_" + out + " = zs[" + b + "][1];";
-            this.string += "let real_" + out + " = bx_" + out + " * logr_" + out + " - by_" + out + " * theta_" + out + ";";
-            this.string += "let imag_" + out + " = bx_" + out + " * theta_" + out + " + by_" + out + " * logr_" + out + ";";
-            this.string += "let expval_" + out + " = Math.exp(real_" + out + ");";
-            this.string += "zs[" + out + "][0] = expval_" + out + " * Math.cos(imag_" + out + ");";
-            this.string += "zs[" + out + "][1] = expval_" + out + " * Math.sin(imag_" + out + ");";
-            return out;
-        }
-        
-        complexRandom() {
-            let out = this.i++;
-            this.string += "zs[" + out + "] = [" + ((Math.random() - 0.5) * 20) + "," + ((Math.random() - 0.5) * 20) + "];";
-            return out;
-        }
-        
-        __generate(prob, z0, depth = 0, maxDepth = 3) {
-            let z = this.complexADD(
-                this.complexMUL(
-                    this.complexDIV(
-                        this._generate(prob, z0, depth + 1, maxDepth), 
-                        this.complexADD(this.complexRandom(), this._generate(prob, z0, depth + 1, maxDepth))
-                    ),
-                    this.complexPOW(
-                        this.complexMUL(
-                            z0, 
+            <!-- Auto Cycle Toggle -->
+            <button id="btn-autocycle" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-xs md:text-sm px-3 py-2 rounded-lg border border-slate-700 transition-all flex items-center gap-1.5">
+                <span id="cycle-dot" class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                <span id="cycle-text">Auto: ON (3s)</span>
+            </button>
+
+            <!-- Reset View -->
+            <button id="btn-reset" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-xs md:text-sm px-3 py-2 rounded-lg border border-slate-700 transition-all">
+                Reset View
+            </button>
+
+            <!-- Palette Selector -->
+            <select id="palette-select" class="bg-slate-800 text-slate-200 text-xs md:text-sm border border-slate-700 rounded-lg px-2.5 py-2 outline-none cursor-pointer hover:bg-slate-700 transition">
+                <option value="0">Original Sinusoidal</option>
+                <option value="1">Cyberpunk Neon</option>
+                <option value="2">Fire & Lava</option>
+                <option value="3">Deep Ocean</option>
+                <option value="4">Grayscale Monochrome</option>
+            </select>
+
+            <!-- Toggle Code Drawer -->
+            <button id="btn-toggle-code" class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-2 rounded-lg border border-slate-700 transition-all" title="Toggle Shader Inspector">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Viewport Coordinates & Hints Panel -->
+    <div class="fixed bottom-4 left-4 z-10 pointer-events-none hidden md:block">
+        <div class="bg-slate-900/80 backdrop-blur-md border border-slate-800 p-3 rounded-xl shadow-xl text-xs text-slate-400 space-y-1">
+            <div class="flex gap-2"><span>Center:</span> <span id="lbl-center" class="text-slate-200 font-mono">0.00, 0.00</span></div>
+            <div class="flex gap-2"><span>Zoom Scale:</span> <span id="lbl-zoom" class="text-slate-200 font-mono">1.0x</span></div>
+            <div class="text-[10px] text-slate-500 pt-1">Drag to Pan | Scroll wheel to Zoom</div>
+        </div>
+    </div>
+
+    <!-- GLSL Code Inspector Drawer -->
+    <div id="code-drawer" class="fixed right-4 top-20 bottom-4 w-96 max-w-[calc(100vw-2rem)] bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl shadow-2xl p-4 flex flex-col z-20 transition-all duration-300 transform translate-x-[calc(100%+2rem)] opacity-0">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
+            <div class="flex items-center gap-2">
+                <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                <h3 class="font-semibold text-sm text-slate-200">Generated GLSL Expression</h3>
+            </div>
+            <button id="btn-close-code" class="text-slate-400 hover:text-slate-100 text-lg leading-none">&times;</button>
+        </div>
+        <pre class="flex-1 overflow-auto text-[11px] font-mono text-emerald-300 bg-slate-950/80 p-3 rounded-lg border border-slate-800 custom-scrollbar leading-relaxed" id="code-preview"></pre>
+        <button id="btn-copy-code" class="mt-3 bg-slate-800 hover:bg-slate-700 text-xs font-medium py-2 rounded-lg text-slate-300 border border-slate-700 transition">Copy Shader Code</button>
+    </div>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // --- WebGL Shader Boilerplate ---
+        const vsSource = `
+            attribute vec2 a_position;
+            void main() {
+                gl_Position = vec4(a_position, 0.0, 1.0);
+            }
+        `;
+
+        // GLSL Header with complex math helper functions
+        const glslHeader = `
+            precision highp float;
+            uniform vec2 u_resolution;
+            uniform vec2 u_bounds_x; // minx, maxx
+            uniform vec2 u_bounds_y; // miny, maxy
+            uniform int u_palette;
+
+            // Complex Addition
+            vec2 complexADD(vec2 a, vec2 b) {
+                return a + b;
+            }
+
+            // Complex Subtraction
+            vec2 complexSUB(vec2 a, vec2 b) {
+                return a - b;
+            }
+
+            // Complex Multiplication: (a.x + i*a.y)*(b.x + i*b.y)
+            vec2 complexMUL(vec2 a, vec2 b) {
+                return vec2(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x);
+            }
+
+            // Complex Division: a / b
+            vec2 complexDIV(vec2 a, vec2 b) {
+                float denom = dot(b, b);
+                if (denom == 0.0) denom = 0.00001;
+                return vec2(a.x * b.x + a.y * b.y, a.y * b.x - a.x * b.y) / denom;
+            }
+
+            // Complex Power: a ^ b
+            vec2 complexPOW(vec2 a, vec2 b) {
+                float r = length(a);
+                float theta = atan(a.y, a.x);
+                float logr = log(r > 0.0 ? r : 0.00001);
+                float realPart = b.x * logr - b.y * theta;
+                float imagPart = b.x * theta + b.y * logr;
+                float expval = exp(realPart);
+                return vec2(expval * cos(imagPart), expval * sin(imagPart));
+            }
+
+            // Color Palette Function
+            vec4 getColor(int iter, int maxIter) {
+                if (iter >= maxIter) {
+                    return vec4(0.0, 0.0, 0.0, 1.0); // Interior stays dark
+                }
+                float t = float(iter);
+                
+                if (u_palette == 0) {
+                    // Original User Sinusoidal Palette
+                    float r = (sin(0.1 * t + 0.1) + 1.0) * 0.5;
+                    float g = (sin(0.3 * t + 0.3) + 1.0) * 0.5;
+                    float b = (sin(0.5 * t + 0.5) + 1.0) * 0.5;
+                    return vec4(r, g, b, 1.0);
+                } else if (u_palette == 1) {
+                    // Cyberpunk Neon
+                    float r = 0.5 + 0.5 * cos(0.2 * t + 0.0);
+                    float g = 0.5 + 0.5 * cos(0.2 * t + 2.0);
+                    float b = 0.5 + 0.5 * cos(0.2 * t + 4.0);
+                    return vec4(r, g, b, 1.0);
+                } else if (u_palette == 2) {
+                    // Fire / Lava
+                    float r = min(1.0, t * 0.08);
+                    float g = min(1.0, t * 0.03);
+                    float b = min(1.0, t * 0.005);
+                    return vec4(r, g, b, 1.0);
+                } else if (u_palette == 3) {
+                    // Ocean Deep
+                    float r = 0.1 + 0.4 * sin(0.1 * t);
+                    float g = 0.3 + 0.5 * sin(0.15 * t + 0.5);
+                    float b = 0.6 + 0.4 * sin(0.2 * t + 1.0);
+                    return vec4(r, g, b, 1.0);
+                } else {
+                    // Monochromatic
+                    float v = mod(t * 0.05, 1.0);
+                    return vec4(vec3(v), 1.0);
+                }
+            }
+        `;
+
+        // AST to GLSL Code Generator Class
+        class GLSLFunctionGenerator {
+            constructor() {
+                this.body = "";
+                this.varCount = 0;
+            }
+
+            // Create a unique variable name
+            nextVar() {
+                return `v${this.varCount++}`;
+            }
+
+            complexADD(a, b) {
+                let out = this.nextVar();
+                this.body += `    vec2 ${out} = complexADD(${a}, ${b});\n`;
+                return out;
+            }
+
+            complexSUB(a, b) {
+                let out = this.nextVar();
+                this.body += `    vec2 ${out} = complexSUB(${a}, ${b});\n`;
+                return out;
+            }
+
+            complexMUL(a, b) {
+                let out = this.nextVar();
+                this.body += `    vec2 ${out} = complexMUL(${a}, ${b});\n`;
+                return out;
+            }
+
+            complexDIV(a, b) {
+                let out = this.nextVar();
+                this.body += `    vec2 ${out} = complexDIV(${a}, ${b});\n`;
+                return out;
+            }
+
+            complexPOW(a, b) {
+                let out = this.nextVar();
+                this.body += `    vec2 ${out} = complexPOW(${a}, ${b});\n`;
+                return out;
+            }
+
+            complexRandom() {
+                let out = this.nextVar();
+                let rx = ((Math.random() - 0.5) * 20.0).toFixed(4);
+                let ry = ((Math.random() - 0.5) * 20.0).toFixed(4);
+                this.body += `    vec2 ${out} = vec2(${rx}, ${ry});\n`;
+                return out;
+            }
+
+            __generate(prob, z0, depth = 0, maxDepth = 3) {
+                let z = this.complexADD(
+                    this.complexMUL(
+                        this.complexDIV(
+                            this._generate(prob, z0, depth + 1, maxDepth), 
+                            this.complexADD(this.complexRandom(), this._generate(prob, z0, depth + 1, maxDepth))
+                        ),
+                        this.complexPOW(
+                            z0,
                             this.complexDIV(
                                 this._generate(prob, z0, depth + 1, maxDepth), 
                                 this.complexADD(this.complexRandom(), this._generate(prob, z0, depth + 1, maxDepth))
                             )
-                        ),
-                        this.complexDIV(
-                            this._generate(prob, z0, depth + 1, maxDepth), 
-                            this.complexADD(this.complexRandom(), this._generate(prob, z0, depth + 1, maxDepth))
                         )
-                    )
-                ),
-                this.complexDIV(this.complexRandom(), this._generate(prob, z0, depth + 1, maxDepth))
-            );
-            return z;
-        }
-        
-        _generate(prob, z0, depth = 0, maxDepth = 3) {
-            if (depth >= maxDepth || Math.random() < prob) {
-                let out = this.i++;
-                this.string += "zs[" + out + "] = z0;";
-                return out;
+                    ),
+                    this.complexDIV(this.complexRandom(), this._generate(prob, z0, depth + 1, maxDepth))
+                );
+                return z;
             }
-            return this.__generate(prob, z0, depth, maxDepth);
+
+            _generate(prob, z0, depth = 0, maxDepth = 3) {
+                if (depth >= maxDepth || Math.random() < prob) {
+                    let out = this.nextVar();
+                    this.body += `    vec2 ${out} = ${z0};\n`;
+                    return out;
+                }
+                return this.__generate(prob, z0, depth, maxDepth);
+            }
+
+            generate(prob = 0.75) {
+                this.body = "";
+                this.varCount = 0;
+                let z0 = "z0_param";
+                let finalVar = this.__generate(prob, z0, 0, 3);
+                
+                let funcSource = `vec2 evaluateFractal(vec2 ${z0}) {\n${this.body}    return ${finalVar};\n}\n`;
+                return funcSource;
+            }
         }
-        
-        generate(prob) {
-            this.z0 = this.i++;
-            let z = this.__generate(prob, this.z0, 0, 3);
-            this.string += "return zs[" + z + "];}";
-            this.f = eval("(" + this.string + ")");
+
+        // --- Application State & Controls ---
+        const canvas = document.getElementById("x");
+        const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+
+        if (!gl) {
+            alert("WebGL is not supported in your browser.");
         }
-        
-        compute(z0) {
-            return this.f(z0);
+
+        // Viewport complex plane bounds
+        let minx = -10.0, maxx = 10.0, miny = -10.0, maxy = 10.0;
+        let selectedPalette = 0;
+        let autoCycle = true;
+        let autoCycleInterval = null;
+        let currentProgram = null;
+        let currentShaderSource = "";
+
+        // UI elements
+        const btnGenerate = document.getElementById("btn-generate");
+        const btnAutoCycle = document.getElementById("btn-autocycle");
+        const cycleText = document.getElementById("cycle-text");
+        const cycleDot = document.getElementById("cycle-dot");
+        const btnReset = document.getElementById("btn-reset");
+        const paletteSelect = document.getElementById("palette-select");
+        const btnToggleCode = document.getElementById("btn-toggle-code");
+        const btnCloseCode = document.getElementById("btn-close-code");
+        const codeDrawer = document.getElementById("code-drawer");
+        const codePreview = document.getElementById("code-preview");
+        const btnCopyCode = document.getElementById("btn-copy-code");
+        const lblCenter = document.getElementById("lbl-center");
+        const lblZoom = document.getElementById("lbl-zoom");
+
+        // --- Shader Builder & Compilation ---
+        function createShader(gl, type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error("Shader Compile Error:", gl.getShaderInfoLog(shader));
+                gl.deleteShader(shader);
+                return null;
+            }
+            return shader;
         }
-    }
-    
-    // Generator initialisieren
 
-    // Canvas erstellen
-    let width = 100;
-    let height = 100;
-    
-    function render() {
-	    let fg = new FunctionGenerator();
- 	   fg.generate(0.75);
+        function createProgram(gl, vsSource, fsSource) {
+            const vertexShader = createShader(gl, gl.VERTEX_SHADER, vsSource);
+            const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
+            if (!vertexShader || !fragmentShader) return null;
 
-		let canvas = document.getElementById("x");
-		canvas.width = width;
-		canvas.height = height;
-		let ctx = canvas.getContext("2d");
-		let imgData = ctx.createImageData(width, height);
-		let data = imgData.data;
+            const program = gl.createProgram();
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+            gl.linkProgram(program);
 
-		let minx = -10, maxx = 10, miny = -10, maxy = 10;
+            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                console.error("Program Link Error:", gl.getProgramInfoLog(program));
+                gl.deleteProgram(program);
+                return null;
+            }
+            return program;
+        }
 
-		// Pixelweise Berechnung auf der CPU
-		for (let y = 0; y < height; y++) {
-		    for (let x = 0; x < width; x++) {
-		        let z0 = x * (maxx - minx) / width + minx;
-		        let z1 = (height - y) * (maxy - miny) / height + miny; // y invertieren
-		        
-		        let iter = 0;
-		        let curZ0 = z0, curZ1 = z1;
-		        
-		        for (; iter < 50; ++iter) {
-		            let res = fg.f([curZ0, curZ1]);
-		            curZ0 = res[0];
-		            curZ1 = res[1];
-		            
-		            if (curZ0 * curZ0 + curZ1 * curZ1 > 100) break;
-		        }
-		        
-		        let index = (y * width + x) * 4;
-		        if (iter === 50) {
-		            data[index]     = 0;   // R
-		            data[index + 1] = 0;   // G
-		            data[index + 2] = 0;   // B
-		            data[index + 3] = 255; // A
-		        } else {
-		            data[index]     = Math.floor((Math.sin(0.1 * iter + 0.1) + 1) * 127.5);
-		            data[index + 1] = Math.floor((Math.sin(0.3 * iter + 0.3) + 1) * 127.5);
-		            data[index + 2] = Math.floor((Math.sin(0.5 * iter + 0.5) + 1) * 127.5);
-		            data[index + 3] = 255;
-		        }
-		    }
-		}
+        // Full Screen Quad Buffers
+        const positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+            -1.0, -1.0,
+             1.0, -1.0,
+            -1.0,  1.0,
+            -1.0,  1.0,
+             1.0, -1.0,
+             1.0,  1.0,
+        ]), gl.STATIC_DRAW);
 
-		ctx.putImageData(imgData, 0, 0);
-		
-		window.setTimeout(render,2000)
-	}
-	
-	render()
-</script>
+        // Generate a new fractal shader dynamically
+        function buildNewFractalShader() {
+            const generator = new GLSLFunctionGenerator();
+            const fractalFuncSource = generator.generate(0.75);
+
+            const fragmentShaderSource = `
+                ${glslHeader}
+                
+                ${fractalFuncSource}
+
+                void main() {
+                    vec2 st = gl_FragCoord.xy / u_resolution;
+                    
+                    // Map screen pixels to complex bounds
+                    float z0_x = st.x * (u_bounds_x.y - u_bounds_x.x) + u_bounds_x.x;
+                    float z0_y = st.y * (u_bounds_y.y - u_bounds_y.x) + u_bounds_y.x;
+                    
+                    vec2 curZ = vec2(z0_x, z0_y);
+                    int iter = 0;
+                    
+                    // 50 Fractal Iterations
+                    for (int i = 0; i < 50; i++) {
+                        curZ = evaluateFractal(curZ);
+                        if (dot(curZ, curZ) > 100.0) {
+                            break;
+                        }
+                        iter++;
+                    }
+
+                    gl_FragColor = getColor(iter, 50);
+                }
+            `;
+
+            const newProgram = createProgram(gl, vsSource, fragmentShaderSource);
+            if (newProgram) {
+                if (currentProgram) gl.deleteProgram(currentProgram);
+                currentProgram = newProgram;
+                currentShaderSource = fractalFuncSource;
+                codePreview.textContent = fractalFuncSource;
+                requestAnimationFrame(render);
+            }
+        }
+
+        // --- Rendering Loop ---
+        function render() {
+            if (!currentProgram) return;
+
+            // Resize Canvas to Viewport
+            if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+                gl.viewport(0, 0, canvas.width, canvas.height);
+            }
+
+            gl.useProgram(currentProgram);
+
+            // Bind Quad Position
+            const positionLocation = gl.getAttribLocation(currentProgram, "a_position");
+            gl.enableVertexAttribArray(positionLocation);
+            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+            gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+            // Set Uniforms
+            gl.uniform2f(gl.getUniformLocation(currentProgram, "u_resolution"), canvas.width, canvas.height);
+            gl.uniform2f(gl.getUniformLocation(currentProgram, "u_bounds_x"), minx, maxx);
+            gl.uniform2f(gl.getUniformLocation(currentProgram, "u_bounds_y"), miny, maxy);
+            gl.uniform1i(gl.getUniformLocation(currentProgram, "u_palette"), selectedPalette);
+
+            // Draw
+            gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+            // Update UI Labels
+            const centerX = ((minx + maxx) / 2).toFixed(2);
+            const centerY = ((miny + maxy) / 2).toFixed(2);
+            const zoomVal = (20.0 / (maxx - minx)).toFixed(2);
+            lblCenter.textContent = `${centerX}, ${centerY}`;
+            lblZoom.textContent = `${zoomVal}x`;
+        }
+
+        // --- Interactive Mouse Controls (Pan & Zoom) ---
+        let isDragging = false;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+
+        canvas.addEventListener("mousedown", (e) => {
+            isDragging = true;
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+        });
+
+        window.addEventListener("mouseup", () => {
+            isDragging = false;
+        });
+
+        canvas.addEventListener("mousemove", (e) => {
+            if (!isDragging) return;
+
+            const dx = e.clientX - lastMouseX;
+            const dy = e.clientY - lastMouseY;
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+
+            // Convert pixels moved to complex space delta
+            const spanX = maxx - minx;
+            const spanY = maxy - miny;
+
+            const deltaX = (dx / canvas.width) * spanX;
+            const deltaY = (dy / canvas.height) * spanY; // GL inverted Y
+
+            minx -= deltaX;
+            maxx -= deltaX;
+            miny += deltaY;
+            maxy += deltaY;
+
+            requestAnimationFrame(render);
+        });
+
+        canvas.addEventListener("wheel", (e) => {
+            e.preventDefault();
+
+            // Zoom centered on cursor
+            const mouseX = e.clientX;
+            const mouseY = e.clientY;
+
+            // Cursor complex coord
+            const cursorX = minx + (mouseX / canvas.width) * (maxx - minx);
+            const cursorY = miny + ((canvas.height - mouseY) / canvas.height) * (maxy - miny);
+
+            const zoomFactor = e.deltaY < 0 ? 0.85 : 1.18;
+
+            minx = cursorX + (minx - cursorX) * zoomFactor;
+            maxx = cursorX + (maxx - cursorX) * zoomFactor;
+            miny = cursorY + (miny - cursorY) * zoomFactor;
+            maxy = cursorY + (maxy - cursorY) * zoomFactor;
+
+            requestAnimationFrame(render);
+        }, { passive: false });
+
+        // Touch support for mobile pan
+        let touchX = 0, touchY = 0;
+        canvas.addEventListener("touchstart", (e) => {
+            if (e.touches.length === 1) {
+                touchX = e.touches[0].clientX;
+                touchY = e.touches[0].clientY;
+            }
+        });
+
+        canvas.addEventListener("touchmove", (e) => {
+            if (e.touches.length === 1) {
+                const dx = e.touches[0].clientX - touchX;
+                const dy = e.touches[0].clientY - touchY;
+                touchX = e.touches[0].clientX;
+                touchY = e.touches[0].clientY;
+
+                const spanX = maxx - minx;
+                const spanY = maxy - miny;
+
+                minx -= (dx / canvas.width) * spanX;
+                maxx -= (dx / canvas.width) * spanX;
+                miny += (dy / canvas.height) * spanY;
+                maxy += (dy / canvas.height) * spanY;
+
+                requestAnimationFrame(render);
+            }
+        });
+
+        // --- Auto Regeneration Timer ---
+        function setupAutoCycle() {
+            if (autoCycleInterval) clearInterval(autoCycleInterval);
+            if (autoCycle) {
+                autoCycleInterval = setInterval(() => {
+                    buildNewFractalShader();
+                }, 3000);
+            }
+        }
+
+        // --- UI Interactions ---
+        btnGenerate.addEventListener("click", () => {
+            buildNewFractalShader();
+        });
+
+        btnAutoCycle.addEventListener("click", () => {
+            autoCycle = !autoCycle;
+            if (autoCycle) {
+                cycleText.textContent = "Auto: ON (3s)";
+                cycleDot.className = "w-2 h-2 rounded-full bg-emerald-400";
+                btnAutoCycle.classList.remove("border-rose-500/50");
+            } else {
+                cycleText.textContent = "Auto: PAUSED";
+                cycleDot.className = "w-2 h-2 rounded-full bg-slate-500";
+                btnAutoCycle.classList.add("border-rose-500/50");
+            }
+            setupAutoCycle();
+        });
+
+        btnReset.addEventListener("click", () => {
+            minx = -10.0;
+            maxx = 10.0;
+            miny = -10.0;
+            maxy = 10.0;
+            requestAnimationFrame(render);
+        });
+
+        paletteSelect.addEventListener("change", (e) => {
+            selectedPalette = parseInt(e.target.value, 10);
+            requestAnimationFrame(render);
+        });
+
+        // Code Inspector Drawer
+        function toggleDrawer(show) {
+            if (show) {
+                codeDrawer.classList.remove("translate-x-[calc(100%+2rem)]", "opacity-0");
+                codeDrawer.classList.add("translate-x-0", "opacity-100");
+            } else {
+                codeDrawer.classList.add("translate-x-[calc(100%+2rem)]", "opacity-0");
+                codeDrawer.classList.remove("translate-x-0", "opacity-100");
+            }
+        }
+
+        btnToggleCode.addEventListener("click", () => {
+            const isHidden = codeDrawer.classList.contains("opacity-0");
+            toggleDrawer(isHidden);
+        });
+
+        btnCloseCode.addEventListener("click", () => toggleDrawer(false));
+
+        btnCopyCode.addEventListener("click", () => {
+            // Using standard execCommand copy fallback
+            const textarea = document.createElement("textarea");
+            textarea.value = currentShaderSource;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand("copy");
+            document.body.removeChild(textarea);
+
+            btnCopyCode.textContent = "Copied to Clipboard!";
+            setTimeout(() => {
+                btnCopyCode.textContent = "Copy Shader Code";
+            }, 1800);
+        });
+
+        window.addEventListener("resize", () => {
+            requestAnimationFrame(render);
+        });
+
+        // Initialize App
+        window.onload = () => {
+            buildNewFractalShader();
+            setupAutoCycle();
+        };
+    </script>
 </body>
 </html>
