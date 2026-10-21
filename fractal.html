@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<head>
+</head>
+<body>
+    <canvas id="x" style="width:90%;height:700px"></canvas>
+<script>
+    class FunctionGenerator {
+        constructor() {
+            this.string = "function fractal(z0) {let zs = [];for(let i = 0;i < 1000;++i) zs.push([0,0]);";
+            this.i = 0;
+        }
+        
+        complexADD(a, b) {
+            let out = this.i++;
+            this.string += "zs[" + out + "][0] = zs[" + a + "][0] + zs[" + b + "][0];";
+            this.string += "zs[" + out + "][1] = zs[" + a + "][1] + zs[" + b + "][1];";
+            return out;
+        }
+
+        complexSUB(a, b) {
+            let out = this.i++;
+            this.string += "zs[" + out + "][0] = zs[" + a + "][0] - zs[" + b + "][0];";
+            this.string += "zs[" + out + "][1] = zs[" + a + "][1] - zs[" + b + "][1];";
+            return out;
+        }
+
+        complexMUL(a, b) {
+            let out = this.i++;
+            this.string += "zs[" + out + "][0] = zs[" + a + "][0] * zs[" + b + "][0] - zs[" + a + "][1] * zs[" + b + "][1];";
+            this.string += "zs[" + out + "][1] = zs[" + a + "][0] * zs[" + b + "][1] + zs[" + a + "][1] * zs[" + b + "][0];";
+            return out;
+        }
+
+        complexDIV(a, b) {
+            let out = this.i++;
+            this.string += "let denom_" + out + " = zs[" + b + "][0] * zs[" + b + "][0] + zs[" + b + "][1] * zs[" + b + "][1];";
+            this.string += "if (denom_" + out + " === 0) denom_" + out + " = 0.00001;";
+            this.string += "zs[" + out + "][0] = (zs[" + a + "][0] * zs[" + b + "][0] + zs[" + a + "][1] * zs[" + b + "][1]) / denom_" + out + ";";
+            this.string += "zs[" + out + "][1] = (zs[" + a + "][1] * zs[" + b + "][0] - zs[" + a + "][0] * zs[" + b + "][1]) / denom_" + out + ";";
+            return out;
+        }
+
+        complexPOW(a, b) {
+            let out = this.i++;
+            this.string += "let r_" + out + " = Math.sqrt(zs[" + a + "][0] * zs[" + a + "][0] + zs[" + a + "][1] * zs[" + a + "][1]);";
+            this.string += "let theta_" + out + " = Math.atan2(zs[" + a + "][1], zs[" + a + "][0]);";
+            this.string += "let logr_" + out + " = Math.log(r_" + out + " > 0 ? r_" + out + " : 0.00001);";
+            this.string += "let bx_" + out + " = zs[" + b + "][0], by_" + out + " = zs[" + b + "][1];";
+            this.string += "let real_" + out + " = bx_" + out + " * logr_" + out + " - by_" + out + " * theta_" + out + ";";
+            this.string += "let imag_" + out + " = bx_" + out + " * theta_" + out + " + by_" + out + " * logr_" + out + ";";
+            this.string += "let expval_" + out + " = Math.exp(real_" + out + ");";
+            this.string += "zs[" + out + "][0] = expval_" + out + " * Math.cos(imag_" + out + ");";
+            this.string += "zs[" + out + "][1] = expval_" + out + " * Math.sin(imag_" + out + ");";
+            return out;
+        }
+        
+        complexRandom() {
+            let out = this.i++;
+            this.string += "zs[" + out + "] = [" + ((Math.random() - 0.5) * 20) + "," + ((Math.random() - 0.5) * 20) + "];";
+            return out;
+        }
+        
+        __generate(prob, z0, depth = 0, maxDepth = 3) {
+            let z = this.complexADD(
+                this.complexMUL(
+                    this.complexDIV(
+                        this._generate(prob, z0, depth + 1, maxDepth), 
+                        this.complexADD(this.complexRandom(), this._generate(prob, z0, depth + 1, maxDepth))
+                    ),
+                    this.complexPOW(
+                        this.complexMUL(
+                            z0, 
+                            this.complexDIV(
+                                this._generate(prob, z0, depth + 1, maxDepth), 
+                                this.complexADD(this.complexRandom(), this._generate(prob, z0, depth + 1, maxDepth))
+                            )
+                        ),
+                        this.complexDIV(
+                            this._generate(prob, z0, depth + 1, maxDepth), 
+                            this.complexADD(this.complexRandom(), this._generate(prob, z0, depth + 1, maxDepth))
+                        )
+                    )
+                ),
+                this.complexDIV(this.complexRandom(), this._generate(prob, z0, depth + 1, maxDepth))
+            );
+            return z;
+        }
+        
+        _generate(prob, z0, depth = 0, maxDepth = 3) {
+            if (depth >= maxDepth || Math.random() < prob) {
+                let out = this.i++;
+                this.string += "zs[" + out + "] = z0;";
+                return out;
+            }
+            return this.__generate(prob, z0, depth, maxDepth);
+        }
+        
+        generate(prob) {
+            this.z0 = this.i++;
+            let z = this.__generate(prob, this.z0, 0, 3);
+            this.string += "return zs[" + z + "];}";
+            this.f = eval("(" + this.string + ")");
+        }
+        
+        compute(z0) {
+            return this.f(z0);
+        }
+    }
+    
+    // Generator initialisieren
+
+    // Canvas erstellen
+    let width = 100;
+    let height = 100;
+    
+    function render() {
+	    let fg = new FunctionGenerator();
+ 	   fg.generate(0.75);
+
+		let canvas = document.getElementById("x");
+		canvas.width = width;
+		canvas.height = height;
+		let ctx = canvas.getContext("2d");
+		let imgData = ctx.createImageData(width, height);
+		let data = imgData.data;
+
+		let minx = -10, maxx = 10, miny = -10, maxy = 10;
+
+		// Pixelweise Berechnung auf der CPU
+		for (let y = 0; y < height; y++) {
+		    for (let x = 0; x < width; x++) {
+		        let z0 = x * (maxx - minx) / width + minx;
+		        let z1 = (height - y) * (maxy - miny) / height + miny; // y invertieren
+		        
+		        let iter = 0;
+		        let curZ0 = z0, curZ1 = z1;
+		        
+		        for (; iter < 50; ++iter) {
+		            let res = fg.f([curZ0, curZ1]);
+		            curZ0 = res[0];
+		            curZ1 = res[1];
+		            
+		            if (curZ0 * curZ0 + curZ1 * curZ1 > 100) break;
+		        }
+		        
+		        let index = (y * width + x) * 4;
+		        if (iter === 50) {
+		            data[index]     = 0;   // R
+		            data[index + 1] = 0;   // G
+		            data[index + 2] = 0;   // B
+		            data[index + 3] = 255; // A
+		        } else {
+		            data[index]     = Math.floor((Math.sin(0.1 * iter + 0.1) + 1) * 127.5);
+		            data[index + 1] = Math.floor((Math.sin(0.3 * iter + 0.3) + 1) * 127.5);
+		            data[index + 2] = Math.floor((Math.sin(0.5 * iter + 0.5) + 1) * 127.5);
+		            data[index + 3] = 255;
+		        }
+		    }
+		}
+
+		ctx.putImageData(imgData, 0, 0);
+		
+		window.setTimeout(render,2000)
+	}
+	
+	render()
+</script>
+</body>
+</html>
