@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dynamic GLSL Fractal Generator</title>
+    <title>Dynamic GLSL Fractal Generator with MD5 Seed</title>
     <!-- Tailwind CSS for UI overlay -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -49,7 +49,13 @@
         <!-- Brand & Title -->
         <div class="bg-slate-900/80 backdrop-blur-md border border-slate-800 p-3 px-4 rounded-xl shadow-2xl pointer-events-auto flex items-center gap-3">
             <div class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></div>
-            <h1 class="font-bold text-base md:text-lg tracking-wide text-emerald-400">WebGL Dynamic Fractal Generator</h1>
+            <div>
+                <h1 class="font-bold text-base md:text-lg tracking-wide text-emerald-400">WebGL Dynamic Fractal Generator</h1>
+                <div class="text-[11px] text-slate-400 font-mono flex items-center gap-1.5 mt-0.5">
+                    <span>MD5 Seed:</span>
+                    <span id="lbl-md5" class="text-emerald-300 font-bold bg-slate-950/60 px-1.5 py-0.5 rounded border border-slate-800 select-all">Calculating...</span>
+                </div>
+            </div>
         </div>
 
         <!-- Controls Toolbar -->
@@ -57,13 +63,19 @@
             <!-- Generate Button -->
             <button id="btn-generate" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs md:text-sm px-3 py-2 rounded-lg transition-all shadow hover:shadow-emerald-500/20 active:scale-95 flex items-center gap-1.5">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                <span>New Formula</span>
+                <span>New Formula (from Seed)</span>
             </button>
 
             <!-- Auto Cycle Toggle (OFF by default) -->
-            <button id="btn-autocycle" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-xs md:text-sm px-3 py-2 rounded-lg border border-slate-700 transition-all flex items-center gap-1.5 border-rose-500/50">
+            <button id="btn-autocycle" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-xs md:text-sm px-3 py-2 rounded-lg border border-slate-700 transition-all flex items-center gap-1.5">
                 <span id="cycle-dot" class="w-2 h-2 rounded-full bg-slate-500"></span>
-                <span id="cycle-text">Auto: PAUSED</span>
+                <span id="cycle-text">Auto: OFF</span>
+            </button>
+
+            <!-- Morph Pause / Play Toggle (ON by default) -->
+            <button id="btn-morphpause" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-xs md:text-sm px-3 py-2 rounded-lg border border-slate-700 transition-all flex items-center gap-1.5 border-emerald-500/50">
+                <span id="morph-dot" class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                <span id="morph-text">Morph: PLAYING</span>
             </button>
 
             <!-- Reset View -->
@@ -111,6 +123,116 @@
 
     <!-- JavaScript Application Logic -->
     <script>
+        // --- Standalone MD5 Hash Implementation ---
+        function md5(bytes) {
+            let k = [
+                0x77b102ea, 0x06300931, 0x895cd7be, 0x6b901122, 0xfd987193, 0xa679438e, 0x49b40821, 0xf61e2562,
+                0xc040b340, 0x265e5a51, 0xe9b6c7aa, 0xd62f105d, 0x02441453, 0xd8a1e681, 0xe7d3fbc8, 0x21e1cde6,
+                0xc33707d6, 0xf4d50d87, 0x455a14ed, 0xa9e3e905, 0xfcefa3f8, 0x676f02d9, 0x8d2a4c8a, 0xfffa3942,
+                0x8771f681, 0x6d9d6122, 0xfde5380c, 0xa4beea44, 0x4bdecfa9, 0xf6bb4b60, 0xbebfbc70, 0x289b7ec6,
+                0xeaa127fa, 0xd4ef3085, 0x04881d05, 0xd9d4d039, 0xe6db99e5, 0x1fa27cf8, 0xc4ac5665, 0xf4292244,
+                0x432aff97, 0xab9423a7, 0xfc93a039, 0x655b59c3, 0x8f0ccc92, 0xffeff47d, 0x85845dd1, 0x6fa87e4f,
+                0xfe2ce6e0, 0xa3014314, 0x4e0811a1, 0xf7537e82, 0xbd3af235, 0x2ad7d2bb, 0xeb86d391, 0x679f4211,
+                0x8d2a4c8a, 0xfffa3942, 0x8771f681, 0x6d9d6122, 0xfde5380c, 0xa4beea44, 0x4bdecfa9, 0xf6bb4b60
+            ];
+
+            // Re-initialize standard MD5 constants correctly
+            const K = new Uint32Array(64);
+            for (let i = 0; i < 64; i++) {
+                K[i] = Math.floor(Math.abs(Math.sin(i + 1)) * 4294967296);
+            }
+
+            const S = [
+                7, 12, 17, 22,  7, 12, 17, 22,  7, 12, 17, 22,  7, 12, 17, 22,
+                5,  9, 14, 20,  5,  9, 14, 20,  5,  9, 14, 20,  5,  9, 14, 20,
+                4, 11, 16, 23,  4, 11, 16, 23,  4, 11, 16, 23,  4, 11, 16, 23,
+                6, 10, 15, 21,  6, 10, 15, 21,  6, 10, 15, 21,  6, 10, 15, 21
+            ];
+
+            let len = bytes.length;
+            let bitLen = len * 8;
+            let padLen = (len % 64 < 56) ? (56 - (len % 64)) : (120 - (len % 64));
+            let padded = new Uint8Array(len + padLen + 8);
+            padded.set(bytes, 0);
+            padded[len] = 0x80;
+
+            // Write 64-bit length in little-endian
+            let view = new DataView(padded.buffer);
+            view.setUint32(padded.length - 8, bitLen & 0xffffffff, true);
+            view.setUint32(padded.length - 4, Math.floor(bitLen / 0x100000000), true);
+
+            let a0 = 0x67452301;
+            let b0 = 0xefcdab89;
+            let c0 = 0x98badcfe;
+            let d0 = 0x10325476;
+
+            for (let offset = 0; offset < padded.length; offset += 64) {
+                let M = new Uint32Array(16);
+                for (let j = 0; j < 16; j++) {
+                    M[j] = view.getUint32(offset + j * 4, true);
+                }
+
+                let A = a0, B = b0, C = c0, D = d0;
+
+                for (let i = 0; i < 64; i++) {
+                    let F, g;
+                    if (i < 16) {
+                        F = (B & C) | ((~B) & D);
+                        g = i;
+                    } else if (i < 32) {
+                        F = (D & B) | ((~D) & C);
+                        g = (5 * i + 1) % 16;
+                    } else if (i < 48) {
+                        F = B ^ C ^ D;
+                        g = (3 * i + 5) % 16;
+                    } else {
+                        F = C ^ (B | (~D));
+                        g = (7 * i) % 16;
+                    }
+
+                    F = (F + A + K[i] + M[g]) >>> 0;
+                    A = D;
+                    D = C;
+                    C = B;
+                    B = (B + ((F << S[i]) | (F >>> (32 - S[i])))) >>> 0;
+                }
+
+                a0 = (a0 + A) >>> 0;
+                b0 = (b0 + B) >>> 0;
+                c0 = (c0 + C) >>> 0;
+                d0 = (d0 + D) >>> 0;
+            }
+
+            function toHex(val) {
+                let hex = "";
+                for (let i = 0; i < 4; i++) {
+                    let byte = (val >>> (i * 8)) & 0xff;
+                    hex += byte.toString(16).padStart(2, "0");
+                }
+                return hex;
+            }
+
+            return toHex(a0) + toHex(b0) + toHex(c0) + toHex(d0);
+        }
+
+        // --- Seeded PRNG Class (Mulberry32) ---
+        class SeededPRNG {
+            constructor(seedHex) {
+                let seedInt = 0x12345678;
+                if (seedHex) {
+                    seedInt = parseInt(seedHex.substring(0, 8), 16) || seedInt;
+                }
+                this.s = seedInt >>> 0;
+            }
+
+            next() {
+                let t = (this.s += 0x6D2B79F5);
+                t = Math.imul(t ^ (t >>> 15), t | 1);
+                t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+                return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+            }
+        }
+
         // --- WebGL Shader Boilerplate ---
         const vsSource = `
             attribute vec2 a_position;
@@ -202,12 +324,12 @@
 
         // AST to GLSL Code Generator Class
         class GLSLFunctionGenerator {
-            constructor() {
+            constructor(prng) {
                 this.body = "";
                 this.varCount = 0;
+                this.prng = prng || { next: () => Math.random() };
             }
 
-            // Create a unique variable name
             nextVar() {
                 return `v${this.varCount++}`;
             }
@@ -242,16 +364,13 @@
                 return out;
             }
 
-            // Morphing random complex values oscillating smooth over time
             complexRandom() {
                 let out = this.nextVar();
-                let baseRx = ((Math.random() - 0.5) * 10.0).toFixed(4);
-                let baseRy = ((Math.random() - 0.5) * 10.0).toFixed(4);
-                // Reduced speed factor range by half (0.1 - 0.5) for slower morphing
-                let speed = (0.1 + Math.random() * 0.4).toFixed(3);
-                let phase = (Math.random() * 6.2831).toFixed(3);
+                let baseRx = ((this.prng.next() - 0.5) * 10.0).toFixed(4);
+                let baseRy = ((this.prng.next() - 0.5) * 10.0).toFixed(4);
+                let speed = (0.1 + this.prng.next() * 0.4).toFixed(3);
+                let phase = (this.prng.next() * 6.2831).toFixed(3);
                 
-                // Animated vector variable morphing continuously
                 this.body += `    vec2 ${out} = vec2(${baseRx} * sin(u_time * ${speed} + ${phase}), ${baseRy} * cos(u_time * ${speed} + ${phase}));\n`;
                 return out;
             }
@@ -277,7 +396,7 @@
             }
 
             _generate(prob, z0, depth = 0, maxDepth = 3) {
-                if (depth >= maxDepth || Math.random() < prob) {
+                if (depth >= maxDepth || this.prng.next() < prob) {
                     let out = this.nextVar();
                     this.body += `    vec2 ${out} = ${z0};\n`;
                     return out;
@@ -298,26 +417,31 @@
 
         // --- Application State & Controls ---
         const canvas = document.getElementById("x");
-        const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+        const gl = canvas.getContext("webgl", { preserveDrawingBuffer: true }) || canvas.getContext("experimental-webgl", { preserveDrawingBuffer: true });
 
         if (!gl) {
             console.error("WebGL is not supported in your browser.");
         }
 
-        // Viewport complex plane bounds
         let minx = -10.0, maxx = 10.0, miny = -10.0, maxy = 10.0;
         let selectedPalette = 0;
-        let autoCycle = false; // Disabled auto-cycle by default
+        let autoCycle = false; // STANDARDMÄSSIG AUS
         let autoCycleInterval = null;
+        let morphPaused = false; // Morphing läuft standardmäßig
         let currentProgram = null;
         let currentShaderSource = "";
-        let startTime = performance.now();
+        let accumulatedTime = 0;
+        let lastTimeNode = performance.now();
+        let latestMD5Seed = "00000000000000000000000000000000";
 
         // UI elements
         const btnGenerate = document.getElementById("btn-generate");
         const btnAutoCycle = document.getElementById("btn-autocycle");
         const cycleText = document.getElementById("cycle-text");
         const cycleDot = document.getElementById("cycle-dot");
+        const btnMorphPause = document.getElementById("btn-morphpause");
+        const morphText = document.getElementById("morph-text");
+        const morphDot = document.getElementById("morph-dot");
         const btnReset = document.getElementById("btn-reset");
         const paletteSelect = document.getElementById("palette-select");
         const btnToggleCode = document.getElementById("btn-toggle-code");
@@ -327,6 +451,7 @@
         const btnCopyCode = document.getElementById("btn-copy-code");
         const lblCenter = document.getElementById("lbl-center");
         const lblZoom = document.getElementById("lbl-zoom");
+        const lblMD5 = document.getElementById("lbl-md5");
 
         // --- Shader Builder & Compilation ---
         function createShader(gl, type, source) {
@@ -371,9 +496,9 @@
              1.0,  1.0,
         ]), gl.STATIC_DRAW);
 
-        // Generate a new fractal shader dynamically
-        function buildNewFractalShader() {
-            const generator = new GLSLFunctionGenerator();
+        function buildNewFractalShader(seedHex) {
+            const prng = new SeededPRNG(seedHex);
+            const generator = new GLSLFunctionGenerator(prng);
             const fractalFuncSource = generator.generate(0.75);
 
             const fragmentShaderSource = `
@@ -384,14 +509,12 @@
                 void main() {
                     vec2 st = gl_FragCoord.xy / u_resolution;
                     
-                    // Map screen pixels to complex bounds
                     float z0_x = st.x * (u_bounds_x.y - u_bounds_x.x) + u_bounds_x.x;
                     float z0_y = st.y * (u_bounds_y.y - u_bounds_y.x) + u_bounds_y.x;
                     
                     vec2 curZ = vec2(z0_x, z0_y);
                     int iter = 0;
                     
-                    // 50 Fractal Iterations
                     for (int i = 0; i < 50; i++) {
                         curZ = evaluateFractal(curZ);
                         if (dot(curZ, curZ) > 100.0) {
@@ -413,10 +536,43 @@
             }
         }
 
+        // --- Compute MD5 of Canvas Pixel Buffer ---
+        function computeCanvasMD5() {
+            const width = gl.drawingBufferWidth;
+            const height = gl.drawingBufferHeight;
+            if (width === 0 || height === 0) return;
+
+            // Downsample pixel array read to balance performance with MD5 seed precision
+            const sampleWidth = Math.min(width, 256);
+            const sampleHeight = Math.min(height, 256);
+
+            const pixels = new Uint8Array(sampleWidth * sampleHeight * 4);
+            gl.readPixels(0, 0, sampleWidth, sampleHeight, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+
+            // Extract RGB values: rgb(x,y) for all sampled x,y
+            const rgbBytes = new Uint8Array(sampleWidth * sampleHeight * 3);
+            let srcIdx = 0, dstIdx = 0;
+            for (let i = 0; i < sampleWidth * sampleHeight; i++) {
+                rgbBytes[dstIdx++] = pixels[srcIdx];     // Red
+                rgbBytes[dstIdx++] = pixels[srcIdx + 1]; // Green
+                rgbBytes[dstIdx++] = pixels[srcIdx + 2]; // Blue
+                srcIdx += 4;
+            }
+
+            latestMD5Seed = md5(rgbBytes);
+            lblMD5.textContent = latestMD5Seed;
+        }
+
         // --- Continuous Animation Loop ---
         function render(now) {
+            const deltaTime = now - lastTimeNode;
+            lastTimeNode = now;
+
+            if (!morphPaused) {
+                accumulatedTime += deltaTime;
+            }
+
             if (currentProgram) {
-                // Resize Canvas to Viewport
                 if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
                     canvas.width = window.innerWidth;
                     canvas.height = window.innerHeight;
@@ -425,24 +581,23 @@
 
                 gl.useProgram(currentProgram);
 
-                // Bind Quad Position
                 const positionLocation = gl.getAttribLocation(currentProgram, "a_position");
                 gl.enableVertexAttribArray(positionLocation);
                 gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
                 gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
 
-                // Set Uniforms - Scaled time down by half (0.5x multiplier)
-                const elapsedTime = (now - startTime) * 0.0005;
+                const elapsedTime = accumulatedTime * 0.0005;
                 gl.uniform1f(gl.getUniformLocation(currentProgram, "u_time"), elapsedTime);
                 gl.uniform2f(gl.getUniformLocation(currentProgram, "u_resolution"), canvas.width, canvas.height);
                 gl.uniform2f(gl.getUniformLocation(currentProgram, "u_bounds_x"), minx, maxx);
                 gl.uniform2f(gl.getUniformLocation(currentProgram, "u_bounds_y"), miny, maxy);
                 gl.uniform1i(gl.getUniformLocation(currentProgram, "u_palette"), selectedPalette);
 
-                // Draw
                 gl.drawArrays(gl.TRIANGLES, 0, 6);
 
-                // Update UI Labels
+                // Calculate MD5 of the current rendered frame
+                computeCanvasMD5();
+
                 const centerX = ((minx + maxx) / 2).toFixed(2);
                 const centerY = ((miny + maxy) / 2).toFixed(2);
                 const zoomVal = (20.0 / (maxx - minx)).toFixed(2);
@@ -476,12 +631,11 @@
             lastMouseX = e.clientX;
             lastMouseY = e.clientY;
 
-            // Convert pixels moved to complex space delta
             const spanX = maxx - minx;
             const spanY = maxy - miny;
 
             const deltaX = (dx / canvas.width) * spanX;
-            const deltaY = (dy / canvas.height) * spanY; // GL inverted Y
+            const deltaY = (dy / canvas.height) * spanY;
 
             minx -= deltaX;
             maxx -= deltaX;
@@ -492,11 +646,9 @@
         canvas.addEventListener("wheel", (e) => {
             e.preventDefault();
 
-            // Zoom centered on cursor
             const mouseX = e.clientX;
             const mouseY = e.clientY;
 
-            // Cursor complex coord
             const cursorX = minx + (mouseX / canvas.width) * (maxx - minx);
             const cursorY = miny + ((canvas.height - mouseY) / canvas.height) * (maxy - miny);
 
@@ -534,19 +686,19 @@
             }
         });
 
-        // --- Auto Regeneration Timer (Optional) ---
+        // --- Auto Regeneration Timer ---
         function setupAutoCycle() {
             if (autoCycleInterval) clearInterval(autoCycleInterval);
             if (autoCycle) {
                 autoCycleInterval = setInterval(() => {
-                    buildNewFractalShader();
+                    buildNewFractalShader(latestMD5Seed);
                 }, 3000);
             }
         }
 
         // --- UI Interactions ---
         btnGenerate.addEventListener("click", () => {
-            buildNewFractalShader();
+            buildNewFractalShader(latestMD5Seed);
         });
 
         btnAutoCycle.addEventListener("click", () => {
@@ -554,13 +706,28 @@
             if (autoCycle) {
                 cycleText.textContent = "Auto: ON (3s)";
                 cycleDot.className = "w-2 h-2 rounded-full bg-emerald-400";
-                btnAutoCycle.classList.remove("border-rose-500/50");
+                btnAutoCycle.classList.add("border-emerald-500/50");
             } else {
-                cycleText.textContent = "Auto: PAUSED";
+                cycleText.textContent = "Auto: OFF";
                 cycleDot.className = "w-2 h-2 rounded-full bg-slate-500";
-                btnAutoCycle.classList.add("border-rose-500/50");
+                btnAutoCycle.classList.remove("border-emerald-500/50");
             }
             setupAutoCycle();
+        });
+
+        btnMorphPause.addEventListener("click", () => {
+            morphPaused = !morphPaused;
+            if (morphPaused) {
+                morphText.textContent = "Morph: PAUSED";
+                morphDot.className = "w-2 h-2 rounded-full bg-rose-400";
+                btnMorphPause.classList.remove("border-emerald-500/50");
+                btnMorphPause.classList.add("border-rose-500/50");
+            } else {
+                morphText.textContent = "Morph: PLAYING";
+                morphDot.className = "w-2 h-2 rounded-full bg-emerald-400";
+                btnMorphPause.classList.add("border-emerald-500/50");
+                btnMorphPause.classList.remove("border-rose-500/50");
+            }
         });
 
         btnReset.addEventListener("click", () => {
